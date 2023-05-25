@@ -19,6 +19,9 @@ the game, including new versions, custom maps and much more.
 
 Originally written by Magnus Auvinen.
 
+This mod is base on the teeworlds example repo: Teeworlds-Example
+========
+
 tw06mod-localization branch
 ---------------------------
 Author: Necropotame, FlowerFell-Sans
