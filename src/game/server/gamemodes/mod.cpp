@@ -7,7 +7,7 @@ CGameControllerMOD::CGameControllerMOD(class CGameContext *pGameServer)
 {
 	// Exchange this to a string that identifies your game mode.
 	// DM, TDM and CTF are reserved for teeworlds original modes.
-	m_pGameType = "MOD";
+	m_pGameType = "Xiuxian  idm";
 
 	//m_GameFlags = GAMEFLAG_TEAMS; // GAMEFLAG_TEAMS makes it a two-team gamemode
 }

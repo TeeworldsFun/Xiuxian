@@ -6,6 +6,8 @@
 // this include should perhaps be removed
 #include "entities/character.h"
 #include "gamecontext.h"
+#include "account.h"
+#include "accdata.h"
 
 // player object
 class CPlayer
@@ -101,6 +103,9 @@ public:
 
 	int m_Authed;
 
+	SAccData m_AccData;
+
+	class CAccount *m_pAccount;
 private:
 	CCharacter *m_pCharacter;
 	CGameContext *m_pGameServer;

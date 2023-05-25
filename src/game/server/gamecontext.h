@@ -16,7 +16,8 @@
 #include "gamecontroller.h"
 #include "gameworld.h"
 #include "player.h"
-
+#include "accdata.h"
+#include "db_sqlite3.h"
 /*
 	Tick
 		Game Context (CGameContext::tick)
@@ -51,6 +52,10 @@ class CGameContext : public IGameServer
 
 	static void ConLanguage(IConsole::IResult *pResult, void *pUserData);
 	static void ConAbout(IConsole::IResult *pResult, void *pUserData);
+	static void ConRegister(IConsole::IResult *pResult, void *pUserData);
+	static void ConLogin(IConsole::IResult *pResult, void *pUserData);
+	static void ConNewPassword(IConsole::IResult *pResult, void *pUserData);
+
 	static void ConTuneParam(IConsole::IResult *pResult, void *pUserData);
 	static void ConTuneReset(IConsole::IResult *pResult, void *pUserData);
 	static void ConTuneDump(IConsole::IResult *pResult, void *pUserData);
@@ -188,6 +193,45 @@ public:
 	virtual const char *GameType();
 	virtual const char *Version();
 	virtual const char *NetVersion();
+	
+	// - SQL
+	CSql *m_pDatabase;
+	void Register(const char *Username, const char *Password, int ClientID); // Register account
+	void Login(const char *Username, const char *Password, int ClientID); // Login account
+	bool Apply(int ClientID, class SAccData Data); // Apply account
+	int GetUID(const char *Username, const char *Password); // Get ID
+};
+
+class CQueryBase : public CQuery
+{
+public:
+	int m_ClientID;
+	const char *Username;
+	const char *Password;
+	const char *Language;
+	CGameContext *m_pGameServer;
+};
+
+class CQueryRegister: public CQueryBase
+{
+	void OnData();
+public:
+};
+
+class CQueryLogin: public CQueryBase
+{
+	void OnData();
+public:
+
+};
+
+class CQueryApply: public CQueryBase
+{
+	void OnData();
+public:
+	
+	int m_Xiuwei;
+	int m_Xianqi; 
 };
 
 inline int CmaskAll() { return -1; }

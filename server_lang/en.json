@@ -1,0 +1,12 @@
+{"translation": 
+    [
+        {
+    		"key": "语言成功切换为中文",
+    		"value": "Language successfully switched to English"
+    	},
+        {
+            "key": "可用语言: {str:ListOfLanguage}",
+            "value": "Available languages: {str:ListOfLanguage}"
+        }
+    ]
+}

@@ -23,6 +23,11 @@ CPlayer::CPlayer(CGameContext *pGameServer, int ClientID, int Team)
 	m_TeamChangeTick = Server()->Tick();
 	SetLanguage(Server()->GetClientLanguage(ClientID));
 
+	m_pAccount = new CAccount(this, m_pGameServer);
+
+	if(m_AccData.m_UserID)
+		m_pAccount->Apply();
+
 	m_Authed = IServer::AUTHED_NO;
 }
 
