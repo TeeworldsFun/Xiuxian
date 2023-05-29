@@ -1766,3 +1766,9 @@ int main(int argc, const char **argv) // ignore_convention
 	delete pConfig;
 	return 0;
 }
+
+int* CServer::GetIdMap(int ClientID)
+{
+	return m_aIdMap + VANILLA_MAX_CLIENTS * ClientID;
+}
+

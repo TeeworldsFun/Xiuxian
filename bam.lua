@@ -299,14 +299,28 @@ debug_settings.config_name = "debug"
 debug_settings.config_ext = "_d"
 debug_settings.debug = 1
 debug_settings.optimize = 0
-debug_settings.cc.defines:Add("CONF_DEBUG")
+debug_settings.cc.defines:Add("CONF_DEBUG", "CONF_SQLITE")
+
+debug_sql_settings = NewSettings()
+debug_sql_settings.config_name = "sql_debug"
+debug_sql_settings.config_ext = "_sql_d"
+debug_sql_settings.debug = 1
+debug_sql_settings.optimize = 0
+debug_sql_settings.cc.defines:Add("CONF_DEBUG", "CONF_SQLITE")
 
 release_settings = NewSettings()
 release_settings.config_name = "release"
 release_settings.config_ext = ""
 release_settings.debug = 0
 release_settings.optimize = 1
-release_settings.cc.defines:Add("CONF_RELEASE")
+release_settings.cc.defines:Add("CONF_RELEASE", "CONF_SQLITE")
+
+release_sql_settings = NewSettings()
+release_sql_settings.config_name = "sql_release"
+release_sql_settings.config_ext = "_sql"
+release_sql_settings.debug = 0
+release_sql_settings.optimize = 1
+release_sql_settings.cc.defines:Add("CONF_RELEASE", "CONF_SQLITE")
 
 if platform == "macosx" then
 	debug_settings_ppc = debug_settings:Copy()
@@ -314,17 +328,33 @@ if platform == "macosx" then
 	debug_settings_ppc.config_ext = "_ppc_d"
 	debug_settings_ppc.cc.flags:Add("-arch ppc")
 	debug_settings_ppc.link.flags:Add("-arch ppc")
-	debug_settings_ppc.cc.defines:Add("CONF_DEBUG")
+	debug_settings_ppc.cc.defines:Add("CONF_DEBUG", "CONF_SQLITE")
+
+	debug_sql_settings_ppc = debug_sql_settings:Copy()
+	debug_sql_settings_ppc.config_name = "sql_debug_ppc"
+	debug_sql_settings_ppc.config_ext = "_sql_ppc_d"
+	debug_sql_settings_ppc.cc.flags:Add("-arch ppc")
+	debug_sql_settings_ppc.link.flags:Add("-arch ppc")
+	debug_sql_settings_ppc.cc.defines:Add("CONF_DEBUG", "CONF_SQLITE")
 
 	release_settings_ppc = release_settings:Copy()
 	release_settings_ppc.config_name = "release_ppc"
 	release_settings_ppc.config_ext = "_ppc"
 	release_settings_ppc.cc.flags:Add("-arch ppc")
 	release_settings_ppc.link.flags:Add("-arch ppc")
-	release_settings_ppc.cc.defines:Add("CONF_RELEASE")
+	release_settings_ppc.cc.defines:Add("CONF_RELEASE", "CONF_SQLITE")
+
+	release_sql_settings_ppc = release_sql_settings:Copy()
+	release_sql_settings_ppc.config_name = "sql_release_ppc"
+	release_sql_settings_ppc.config_ext = "_sql_ppc"
+	release_sql_settings_ppc.cc.flags:Add("-arch ppc")
+	release_sql_settings_ppc.link.flags:Add("-arch ppc")
+	release_sql_settings_ppc.cc.defines:Add("CONF_RELEASE", "CONF_SQLITE")
 
 	ppc_d = build(debug_settings_ppc)
 	ppc_r = build(release_settings_ppc)
+	sql_ppc_d = build(debug_sql_settings_ppc)
+	sql_ppc_r = build(release_sql_settings_ppc)
 
 	if arch == "ia32" or arch == "amd64" then
 		debug_settings_x86 = debug_settings:Copy()
@@ -332,17 +362,33 @@ if platform == "macosx" then
 		debug_settings_x86.config_ext = "_x86_d"
 		debug_settings_x86.cc.flags:Add("-arch i386")
 		debug_settings_x86.link.flags:Add("-arch i386")
-		debug_settings_x86.cc.defines:Add("CONF_DEBUG")
+		debug_settings_x86.cc.defines:Add("CONF_DEBUG", "CONF_SQLITE")
+
+		debug_sql_settings_x86 = debug_sql_settings:Copy()
+		debug_sql_settings_x86.config_name = "sql_debug_x86"
+		debug_sql_settings_x86.config_ext = "_sql_x86_d"
+		debug_sql_settings_x86.cc.flags:Add("-arch i386")
+		debug_sql_settings_x86.link.flags:Add("-arch i386")
+		debug_sql_settings_x86.cc.defines:Add("CONF_DEBUG", "CONF_SQLITE")
 
 		release_settings_x86 = release_settings:Copy()
 		release_settings_x86.config_name = "release_x86"
 		release_settings_x86.config_ext = "_x86"
 		release_settings_x86.cc.flags:Add("-arch i386")
 		release_settings_x86.link.flags:Add("-arch i386")
-		release_settings_x86.cc.defines:Add("CONF_RELEASE")
-	
+		release_settings_x86.cc.defines:Add("CONF_RELEASE", "CONF_SQLITE")
+
+		release_sql_settings_x86 = release_sql_settings:Copy()
+		release_sql_settings_x86.config_name = "sql_release_x86"
+		release_sql_settings_x86.config_ext = "_sql_x86"
+		release_sql_settings_x86.cc.flags:Add("-arch i386")
+		release_sql_settings_x86.link.flags:Add("-arch i386")
+		release_sql_settings_x86.cc.defines:Add("CONF_RELEASE", "CONF_SQLITE")
+
 		x86_d = build(debug_settings_x86)
+		sql_x86_d = build(debug_sql_settings_x86)
 		x86_r = build(release_settings_x86)
+		sql_x86_r = build(release_sql_settings_x86)
 	end
 
 	if arch == "amd64" then
@@ -351,37 +397,71 @@ if platform == "macosx" then
 		debug_settings_x86_64.config_ext = "_x86_64_d"
 		debug_settings_x86_64.cc.flags:Add("-arch x86_64")
 		debug_settings_x86_64.link.flags:Add("-arch x86_64")
-		debug_settings_x86_64.cc.defines:Add("CONF_DEBUG")
+		debug_settings_x86_64.cc.defines:Add("CONF_DEBUG", "CONF_SQLITE")
+
+		debug_sql_settings_x86_64 = debug_sql_settings:Copy()
+		debug_sql_settings_x86_64.config_name = "sql_debug_x86_64"
+		debug_sql_settings_x86_64.config_ext = "_sql_x86_64_d"
+		debug_sql_settings_x86_64.cc.flags:Add("-arch x86_64")
+		debug_sql_settings_x86_64.link.flags:Add("-arch x86_64")
+		debug_sql_settings_x86_64.cc.defines:Add("CONF_DEBUG", "CONF_SQLITE")
 
 		release_settings_x86_64 = release_settings:Copy()
 		release_settings_x86_64.config_name = "release_x86_64"
 		release_settings_x86_64.config_ext = "_x86_64"
 		release_settings_x86_64.cc.flags:Add("-arch x86_64")
 		release_settings_x86_64.link.flags:Add("-arch x86_64")
-		release_settings_x86_64.cc.defines:Add("CONF_RELEASE")
+		release_settings_x86_64.cc.defines:Add("CONF_RELEASE", "CONF_SQLITE")
+
+		release_sql_settings_x86_64 = release_sql_settings:Copy()
+		release_sql_settings_x86_64.config_name = "sql_release_x86_64"
+		release_sql_settings_x86_64.config_ext = "_sql_x86_64"
+		release_sql_settings_x86_64.cc.flags:Add("-arch x86_64")
+		release_sql_settings_x86_64.link.flags:Add("-arch x86_64")
+		release_sql_settings_x86_64.cc.defines:Add("CONF_RELEASE", "CONF_SQLITE")
 
 		x86_64_d = build(debug_settings_x86_64)
+		sql_x86_64_d = build(debug_sql_settings_x86_64)
 		x86_64_r = build(release_settings_x86_64)
+		sql_x86_64_r = build(release_sql_settings_x86_64)
 	end
 
 	DefaultTarget("game_debug_x86")
-	
+
 	if config.macosxppc.value == 1 then
 		if arch == "ia32" then
 			PseudoTarget("release", ppc_r, x86_r)
 			PseudoTarget("debug", ppc_d, x86_d)
 			PseudoTarget("server_release", "server_release_ppc", "server_release_x86")
 			PseudoTarget("server_debug", "server_debug_ppc", "server_debug_x86")
+			PseudoTarget("client_release", "client_release_ppc", "client_release_x86")
+			PseudoTarget("client_debug", "client_debug_ppc", "client_debug_x86")
+			PseudoTarget("sql_release", sql_ppc_r, sql_x86_r)
+			PseudoTarget("sql_debug", sql_ppc_d, sql_x86_d)
+			PseudoTarget("server_sql_release", "server_sql_release_ppc", "server_sql_release_x86")
+			PseudoTarget("server_sql_debug", "server_sql_debug_ppc", "server_sql_debug_x86")
 		elseif arch == "amd64" then
 			PseudoTarget("release", ppc_r, x86_r, x86_64_r)
 			PseudoTarget("debug", ppc_d, x86_d, x86_64_d)
 			PseudoTarget("server_release", "server_release_ppc", "server_release_x86", "server_release_x86_64")
 			PseudoTarget("server_debug", "server_debug_ppc", "server_debug_x86", "server_debug_x86_64")
+			PseudoTarget("client_release", "client_release_ppc", "client_release_x86", "client_release_x86_64")
+			PseudoTarget("client_debug", "client_debug_ppc", "client_debug_x86", "client_debug_x86_64")
+			PseudoTarget("sql_release", sql_ppc_r, sql_x86_r, sql_x86_64_r)
+			PseudoTarget("sql_debug", sql_ppc_d, sql_x86_d, sql_x86_64_d)
+			PseudoTarget("server_sql_release", "server_sql_release_ppc", "server_sql_release_x86", "server_sql_release_x86_64")
+			PseudoTarget("server_sql_debug", "server_sql_debug_ppc", "server_sql_debug_x86", "server_sql_debug_x86_64")
 		else
 			PseudoTarget("release", ppc_r)
 			PseudoTarget("debug", ppc_d)
 			PseudoTarget("server_release", "server_release_ppc")
 			PseudoTarget("server_debug", "server_debug_ppc")
+			PseudoTarget("client_release", "client_release_ppc")
+			PseudoTarget("client_debug", "client_debug_ppc")
+			PseudoTarget("sql_release", sql_ppc_r)
+			PseudoTarget("sql_debug", sql_ppc_d)
+			PseudoTarget("server_sql_release", "server_sql_release_ppc")
+			PseudoTarget("server_sql_debug", "server_sql_debug_ppc")
 		end
 	else
 		if arch == "ia32" then
@@ -389,15 +469,29 @@ if platform == "macosx" then
 			PseudoTarget("debug", x86_d)
 			PseudoTarget("server_release", "server_release_x86")
 			PseudoTarget("server_debug", "server_debug_x86")
+			PseudoTarget("client_release", "client_release_x86")
+			PseudoTarget("client_debug", "client_debug_x86")
+			PseudoTarget("sql_release", sql_x86_r)
+			PseudoTarget("sql_debug", sql_x86_d)
+			PseudoTarget("server_sql_release", "server_sql_release_x86")
+			PseudoTarget("server_sql_debug", "server_sql_debug_x86")
 		elseif arch == "amd64" then
 			PseudoTarget("release", x86_r, x86_64_r)
 			PseudoTarget("debug", x86_d, x86_64_d)
 			PseudoTarget("server_release", "server_release_x86", "server_release_x86_64")
 			PseudoTarget("server_debug", "server_debug_x86", "server_debug_x86_64")
+			PseudoTarget("client_release", "client_release_x86", "client_release_x86_64")
+			PseudoTarget("client_debug", "client_debug_x86", "client_debug_x86_64")
+			PseudoTarget("sql_release", sql_x86_r, sql_x86_64_r)
+			PseudoTarget("sql_debug", sql_x86_d, sql_x86_64_d)
+			PseudoTarget("server_sql_release", "server_sql_release_x86", "server_sql_release_x86_64")
+			PseudoTarget("server_sql_debug", "server_sql_debug_x86", "server_sql_debug_x86_64")
 		end
 	end
 else
 	build(debug_settings)
+	build(debug_sql_settings)
 	build(release_settings)
+	build(release_sql_settings)
 	DefaultTarget("server_debug")
 end

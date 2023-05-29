@@ -15,6 +15,7 @@ CAccount::CAccount(CPlayer *pPlayer, CGameContext *pGameServer)
 	m_pGameServer = pGameServer;
 }
 
+#ifdef CONF_SQLITE
 void CAccount::Login(char *Username, char *Password, int ClientID)
 {
 	char aBuf[125];
@@ -36,6 +37,7 @@ void CAccount::Register(char *Username, char *Password, int ClientID)
 
 	GameServer()->Register(Username, Password, m_pPlayer->GetCID());
 }
+#endif
 
 bool CAccount::Exists(const char *Username)
 {
@@ -43,7 +45,14 @@ bool CAccount::Exists(const char *Username)
 
 bool CAccount::Apply()
 {
+#ifdef CONF_SQLITE
 	return GameServer()->Apply(m_pPlayer->GetCID(), m_pPlayer->m_AccData);
+#endif
+
+#ifdef CONF_SQL
+	return false;
+#endif
+
 }
 
 void CAccount::Reset()
@@ -52,7 +61,7 @@ void CAccount::Reset()
 	str_copy(m_pPlayer->m_AccData.m_Username, "", 32);
 	str_copy(m_pPlayer->m_AccData.m_Password, "", 32);
 	
-	m_pPlayer->m_AccData.m_Xiuwei = m_pPlayer->m_AccData.m_Xianqi = 0;
+	m_pPlayer->m_AccData.m_Xiuwei = m_pPlayer->m_AccData.m_Po = 0;
 }
 
 void CAccount::NewPassword(char *NewPassword)

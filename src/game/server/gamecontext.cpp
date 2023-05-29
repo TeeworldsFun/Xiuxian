@@ -9,15 +9,17 @@
 #include <game/version.h>
 #include <game/collision.h>
 #include <game/gamecore.h>
-#include "gamemodes/mod.h"
+#include "Data/botdata.h"
+#include <string>
 
 #include <teeuniverses/components/localization.h>
 
+#ifdef CONF_SQLITE
 void CQueryRegister::OnData()
 {
 	if (Next())
 	{
-		m_pGameServer->SendChatTarget(m_ClientID, _("Account already exists."));
+		m_pGameServer->SendChatTarget(m_ClientID, _("⚠此方世界容不下两个相同的肉体，还请道友取个别的血肉之名⚠"));
 	}
 	else
 	{
@@ -43,7 +45,7 @@ void CQueryLogin::OnData()
 		m_pGameServer->m_apPlayers[m_ClientID]->m_AccData.m_UserID = GetInt(GetID("ID"));
 		str_format(m_pGameServer->m_apPlayers[m_ClientID]->m_AccData.m_Username, sizeof(m_pGameServer->m_apPlayers[m_ClientID]->m_AccData.m_Username), GetText(GetID("Username")));
 		str_format(m_pGameServer->m_apPlayers[m_ClientID]->m_AccData.m_Password, sizeof(m_pGameServer->m_apPlayers[m_ClientID]->m_AccData.m_Password), GetText(GetID("Password")));
-		m_pGameServer->m_apPlayers[m_ClientID]->m_AccData.m_Xianqi = GetInt(GetID("Xianqi"));
+		m_pGameServer->m_apPlayers[m_ClientID]->m_AccData.m_Po = GetInt(GetID("Po"));
 		m_pGameServer->m_apPlayers[m_ClientID]->m_AccData.m_Xiuwei = GetInt(GetID("Xiuwei"));
 		m_pGameServer->Server()->SetClientLanguage(m_ClientID, GetText(GetID("Language")));
 
@@ -70,8 +72,10 @@ void CQueryLogin::OnData()
 void CQueryApply::OnData()
 {
 	if (Next())
-		m_pDatabase->Apply(Username, Password);
+		m_pDatabase->Apply(Username, Password, m_Data);
 }
+
+#endif
 
 enum
 {
@@ -99,7 +103,14 @@ void CGameContext::Construct(int Resetting)
 	if (Resetting == NO_RESET)
 		m_pVoteOptionHeap = new CHeap();
 
+	#ifdef CONF_SQLITE
 	m_pDatabase = new CSql();
+	#endif
+	
+	#ifdef CONF_SQL
+	/* SQL */
+	m_Sql = new CSQL(this);
+	#endif
 }
 
 CGameContext::CGameContext(int Resetting)
@@ -133,6 +144,10 @@ void CGameContext::Clear()
 	CVoteOptionServer *pVoteOptionLast = m_pVoteOptionLast;
 	int NumVoteOptions = m_NumVoteOptions;
 	CTuningParams Tuning = m_Tuning;
+
+	#ifdef CONF_SQL
+		delete m_Sql;
+	#endif
 
 	m_Resetting = true;
 	this->~CGameContext();
@@ -616,10 +631,7 @@ void CGameContext::OnClientEnter(int ClientID)
 
 void CGameContext::OnClientConnected(int ClientID)
 {
-	// Check which team the player should be on
-	const int StartTeam = g_Config.m_SvTournamentMode ? TEAM_SPECTATORS : m_pController->GetAutoTeam(ClientID);
-
-	m_apPlayers[ClientID] = new (ClientID) CPlayer(this, ClientID, StartTeam);
+	m_apPlayers[ClientID] = new (ClientID) CPlayer(this, ClientID, BOTTYPE_PLAYER);
 	// players[client_id].init(client_id);
 	// players[client_id].client_id = client_id;
 
@@ -647,9 +659,13 @@ void CGameContext::OnClientDrop(int ClientID, const char *pReason)
 {
 	AbortVoteKickOnDisconnect(ClientID);
 
+	#ifdef CONF_SQLITE
 	if(m_apPlayers[ClientID]->m_AccData.m_UserID)
 		m_apPlayers[ClientID]->m_pAccount->Apply();
-
+	#endif
+	#ifdef CONF_SQL
+	Apply(ClientID);
+	#endif
 	m_apPlayers[ClientID]->OnDisconnect(pReason);
 	delete m_apPlayers[ClientID];
 	m_apPlayers[ClientID] = 0;
@@ -1645,6 +1661,7 @@ void CGameContext::ConLanguage(IConsole::IResult *pResult, void *pUserData)
 	return;
 }
 
+#ifdef CONF_SQLITE
 void CGameContext::ConRegister(IConsole::IResult *pResult, void *pUserData)
 {
 	CGameContext *pThis = (CGameContext *)pUserData;
@@ -1691,10 +1708,68 @@ void CGameContext::ConLogin(IConsole::IResult *pResult, void *pUserData)
 	pThis->m_apPlayers[pResult->GetClientID()]->m_pAccount->Login(Username, Password, pResult->GetClientID());
 	return;
 }
+#endif
+
+#ifdef CONF_SQL
+void CGameContext::ConRegister(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+
+	if (pResult->NumArguments() != 2)
+	{
+		pSelf->SendChatTarget(pResult->GetClientID(), _("Usage: /register <username> <password>"));
+		return;
+	}
+
+	SAccData Data;
+	Data.m_ClientID = pResult->GetClientID();
+	str_copy(Data.m_Username, pResult->GetString(0), sizeof(Data.m_Username));
+	str_copy(Data.m_Password, pResult->GetString(1), sizeof(Data.m_Password));
+	pSelf->Sql()->CreateAccount(Data);
+}
+
+void CGameContext::ConLogin(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	if (pResult->NumArguments() != 2)
+	{
+		pSelf->SendChatTarget(pResult->GetClientID(), _("usage: /login <username> <password>"));
+		return;
+	}
+
+	SAccData Data;
+	Data.m_ClientID = pResult->GetClientID();
+	str_copy(Data.m_Username, pResult->GetString(0), sizeof(Data.m_Username));
+	str_copy(Data.m_Password, pResult->GetString(1), sizeof(Data.m_Password));
+
+	pSelf->Sql()->Login(Data);
+}
+#endif
 
 void CGameContext::ConNewPassword(IConsole::IResult *pResult, void *pUserData)
 {
 	CGameContext *pThis = (CGameContext *)pUserData;
+	// 不打算写这个，但是放在这假装我写了（
+	// 写了这个就少了个赚钱手段捏
+}
+
+void CGameContext::ConShowMe(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pThis = (CGameContext *)pUserData;
+	int CID = pResult->GetClientID();
+	CPlayer *pPlayer = pThis->m_apPlayers[CID];
+
+	if(!pPlayer->m_AccData.m_UserID)
+		return;
+
+	pThis->SendChatTarget(CID, _("- - - - - - - - -"));
+	pThis->SendChatTarget(CID, _("肉体编号: {int:UID}"), "UID", &pPlayer->m_AccData.m_UserID);
+	pThis->SendChatTarget(CID, _("- - - - - - - - -"));
+	pThis->SendChatTarget(CID, _("肉体之名: {str:Name}"), "Name", &pPlayer->m_AccData.m_Username);
+	pThis->SendChatTarget(CID, _("修为: {int:Xiuwei}"), "Xiuwei", &pPlayer->m_AccData.m_Xiuwei);
+	pThis->SendChatTarget(CID, _("魄: {int:Xiuwei}"), "Xiuwei", &pPlayer->m_AccData.m_Po);
+	pThis->SendChatTarget(CID, _("- - - - - - - - -"));
+
 }
 
 void CGameContext::SetClientLanguage(int ClientID, const char *pLanguage)
@@ -1749,6 +1824,8 @@ void CGameContext::OnConsoleInit()
 	Console()->Register("login", "ss", CFGFLAG_CHAT, ConLogin, this, "");
 	Console()->Register("newpw", "s", CFGFLAG_CHAT, ConNewPassword, this, "");
 
+	Console()->Register("me", "?s", CFGFLAG_CHAT, ConShowMe, this, "");
+
 	Console()->Chain("sv_motd", ConchainSpecialMotdupdate, this);
 }
 
@@ -1773,7 +1850,7 @@ void CGameContext::OnInit(/*class IKernel *pKernel*/)
 	// players = new CPlayer[MAX_CLIENTS];
 
 	// select gametype
-	m_pController = new CGameControllerMOD(this);
+	m_pController = new CGameController(this);
 
 	// setup core world
 	// for(int i = 0; i < MAX_CLIENTS; i++)
@@ -1825,26 +1902,20 @@ void CGameContext::OnShutdown()
 
 void CGameContext::OnSnap(int ClientID)
 {
-	// add tuning to demo
-	CTuningParams StandardTuning;
-	if (ClientID == -1 && Server()->DemoRecorder_IsRecording() && mem_comp(&StandardTuning, &m_Tuning, sizeof(CTuningParams)) != 0)
-	{
-		CMsgPacker Msg(NETMSGTYPE_SV_TUNEPARAMS);
-		int *pParams = (int *)&m_Tuning;
-		for (unsigned i = 0; i < sizeof(m_Tuning) / sizeof(int); i++)
-			Msg.AddInt(pParams[i]);
-		Server()->SendMsg(&Msg, MSGFLAG_RECORD | MSGFLAG_NOSEND, ClientID);
-	}
-
+	CPlayer* pPlayer = m_apPlayers[ClientID];
+	if(!pPlayer)
+		return;
 	m_World.Snap(ClientID);
 	m_pController->Snap(ClientID);
 	m_Events.Snap(ClientID);
-
-	for (int i = 0; i < MAX_CLIENTS; i++)
+	for(auto& arpPlayer : m_apPlayers)
 	{
-		if (m_apPlayers[i])
-			m_apPlayers[i]->Snap(ClientID);
+		if(arpPlayer)
+			arpPlayer->Snap(ClientID);
 	}
+
+	if(ClientID >= MAX_PLAYERS)
+		m_apPlayers[ClientID]->FakeSnap();
 }
 void CGameContext::OnPreSnap() {}
 void CGameContext::OnPostSnap()
@@ -1868,6 +1939,7 @@ const char *CGameContext::NetVersion() { return GAME_NETVERSION; }
 
 IGameServer *CreateGameServer() { return new CGameContext; }
 
+#ifdef CONF_SQLITE
 void CGameContext::Register(const char *Username, const char *Password, int ClientID)
 {
 	char *pQueryBuf = sqlite3_mprintf("SELECT * FROM Accounts WHERE Username='%q'", Username);
@@ -1897,12 +1969,28 @@ bool CGameContext::Apply(int ClientID, SAccData Data)
 {
 	char *pQueryBuf = sqlite3_mprintf("SELECT * FROM Accounts WHERE Username='%q'", Data.m_Username);
 	CQueryApply *pQuery = new CQueryApply();
-	pQuery->Username = Data.m_Username;
-	pQuery->Password = Data.m_Password;
-	pQuery->Language = m_apPlayers[ClientID]->GetLanguage();
+	pQuery->m_Data = Data;
 	pQuery->m_pGameServer = this;
 	pQuery->Query(m_pDatabase, pQueryBuf);
 	sqlite3_free(pQueryBuf);
 
 	return true;
 }
+#endif
+
+#ifdef CONF_SQL
+void CGameContext::Apply(int ClientID)
+{
+	AccDataList DataList;
+	SAccData Data = m_apPlayers[ClientID]->m_AccData;
+	Apply(ClientID, DataList.GetDataName(AccDataList::ACCDATA_XIUWEI), std::to_string(Data.m_Xiuwei).c_str());
+	Apply(ClientID, DataList.GetDataName(AccDataList::ACCDATA_PO), std::to_string(Data.m_Po).c_str());
+}
+
+void CGameContext::Apply(int ClientID, const char NeedyUpdate[256], const char Value[256])
+{
+	Sql()->Update(ClientID, m_apPlayers[ClientID]->m_AccData, NeedyUpdate, Value);
+	return;
+}
+
+#endif

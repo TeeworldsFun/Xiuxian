@@ -5,6 +5,9 @@
 #include "kernel.h"
 #include "message.h"
 
+#include <engine/shared/protocol.h>
+#include <base/math.h>
+
 class IServer : public IInterface
 {
 	MACRO_INTERFACE("server", 0)
@@ -45,6 +48,33 @@ public:
 
 	virtual int SendMsg(CMsgPacker *pMsg, int Flags, int ClientID) = 0;
 
+
+	bool Translate(int& Target, int Client)
+	{
+		int* pMap = GetIdMap(Client);
+		bool Found = false;
+		for(int i = 0; i < VANILLA_MAX_CLIENTS; i++)
+		{
+			if(Target == pMap[i])
+			{
+				Target = i;
+				Found = true;
+				break;
+			}
+		}
+		return Found;
+	}
+
+	bool ReverseTranslate(int& Target, int Client)
+	{
+		Target = clamp(Target, 0, VANILLA_MAX_CLIENTS - 1);
+		int* pMap = GetIdMap(Client);
+		if(pMap[Target] == -1)
+			return false;
+		Target = pMap[Target];
+		return true;
+	}
+
 	template<class T>
 	int SendPackMsg(T *pMsg, int Flags, int ClientID)
 	{
@@ -73,6 +103,8 @@ public:
 	virtual void SetRconCID(int ClientID) = 0;
 	virtual bool IsAuthed(int ClientID) = 0;
 	virtual void Kick(int ClientID, const char *pReason) = 0;
+
+	virtual int* GetIdMap(int ClientID) = 0;
 
 	virtual void DemoRecorder_HandleAutoStart() = 0;
 	virtual bool DemoRecorder_IsRecording() = 0;

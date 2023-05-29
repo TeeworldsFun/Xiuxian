@@ -5,7 +5,6 @@
 
 #include <engine/server.h>
 
-
 class CSnapIDPool
 {
 	enum
@@ -130,6 +129,7 @@ public:
 	};
 
 	CClient m_aClients[MAX_CLIENTS];
+	int m_aIdMap[MAX_CLIENTS * VANILLA_MAX_CLIENTS];
 
 	CSnapshotDelta m_SnapshotDelta;
 	CSnapshotBuilder m_SnapshotBuilder;
@@ -243,6 +243,8 @@ public:
 public:
 	virtual const char* GetClientLanguage(int ClientID);
 	virtual void SetClientLanguage(int ClientID, const char* pLanguage);
+	
+	int* GetIdMap(int ClientID) override;
 };
 
 #endif

@@ -4,13 +4,13 @@
 #define GAME_VERSION_H
 #include "generated/nethash.cpp"
 #define GAME_VERSION "0.6.4"
-#define GAME_NETVERSION "0.6 " GAME_NETVERSION_HASH
-static const char GAME_RELEASE_VERSION[8] = {'0', '.', '6', '.', '4', 0};
+#define GAME_NETVERSION "0.6 626fce9a778df4d4"
+static const char GAME_RELEASE_VERSION[] = "0.6.4";
 
-#define MOD_NAME "MyMod"
+#define MOD_NAME "Xiuxian - 修仙"
 #define MOD_VERSION "0.1"
-#define MOD_AUTHORS ""
-#define MOD_CREDITS ""
-#define MOD_THANKS ""
-#define MOD_SOURCES ""
+#define MOD_AUTHORS "ST-Chara, xy_cloud, Flower, FlowerFell-Sans"
+#define MOD_CREDITS "ST-Chara, xy_cloud, Flower, FlowerFell-Sans"
+#define MOD_THANKS "kurosio, GutZuFusss, necropotame, Siile"
+#define MOD_SOURCES "https://github.com/TeeworldsFun/Xiuxian"
 #endif

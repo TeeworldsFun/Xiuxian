@@ -1,3 +1,4 @@
+#ifdef CONF_SQLITE
 /* (c) GutZuFusss. See licence.txt in the root of the distribution for more information.     */
 /* If you are missing that file, acquire a complete release at teeworlds.com.                */
 #include "db_sqlite3.h"
@@ -123,7 +124,7 @@ CSql::CSql()
                            "Username                   TEXT            NOT NULL,"
                            "Password                   TEXT            NOT NULL,"
                            "Language                   TEXT            NOT NULL,"
-                           "Xianqi                     INTEGER         NOT NULL        DEFAULT 0,"
+                           "Po                     INTEGER         NOT NULL        DEFAULT 0,"
                            "Xiuwei                     INTEGER         NOT NULL        DEFAULT 1);";
 
     sqlite3_exec(m_pDB, pQuery, 0, 0, 0);
@@ -155,13 +156,13 @@ bool CSql::Register(const char *Username, const char *Password, const char *Lang
 
     char pQuery[555];
 
+    char *pErrorMsg;
     str_format(pQuery, sizeof(pQuery), (char *)"INSERT INTO Accounts("
                                                "Username, "
                                                "Password, Language) "
                                                "VALUES ('%s', '%s', '%s');",
                Username, Password, Language);
 
-    char *pErrorMsg;
     sqlite3_exec(m_pDB, pQuery, NULL, NULL, &pErrorMsg);
 
     dbg_msg("SQLite3", "Error msg: %s", pErrorMsg);
@@ -187,7 +188,7 @@ bool CSql::Login(const char *Username, const char *Password, int ClientID)
     return true;
 }
 
-bool CSql::Apply(const char *Username, const char *Password)
+bool CSql::Apply(const char *Username, const char *Password, SAccData Data)
 {
     char pQuery[300];
 
@@ -195,10 +196,12 @@ bool CSql::Apply(const char *Username, const char *Password)
 
     int nRet = 0;
     char *pErrorMsg;
-
+    
     sqlite3_exec(m_pDB, pQuery, NULL, NULL, &pErrorMsg);
     m_Running = true;
     thread_init(InitWorker, this);
     dbg_msg("SQLite3", "Error msg: %s", pErrorMsg);
     return true;
 }
+
+#endif

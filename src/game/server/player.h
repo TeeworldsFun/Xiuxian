@@ -7,7 +7,7 @@
 #include "entities/character.h"
 #include "gamecontext.h"
 #include "account.h"
-#include "accdata.h"
+#include "Data/accdata.h"
 
 // player object
 class CPlayer
@@ -16,19 +16,20 @@ class CPlayer
 
 public:
 	CPlayer(CGameContext *pGameServer, int ClientID, int Team);
-	~CPlayer();
+	virtual ~CPlayer();
 
 	void Init(int CID);
 
 	void TryRespawn();
 	void Respawn();
-	void SetTeam(int Team, bool DoChatMsg=true);
+	void SetTeam(int Team, bool DoChatMsg = true);
 	int GetTeam() const { return m_Team; };
 	int GetCID() const { return m_ClientID; };
 
 	void Tick();
 	void PostTick();
 	void Snap(int SnappingClient);
+	virtual void FakeSnap();
 
 	void OnDirectInput(CNetObj_PlayerInput *NewInput);
 	void OnPredictedInput(CNetObj_PlayerInput *NewInput);
@@ -37,8 +38,8 @@ public:
 	void KillCharacter(int Weapon = WEAPON_GAME);
 	CCharacter *GetCharacter();
 
-	const char* GetLanguage();
-	void SetLanguage(const char* pLanguage);
+	const char *GetLanguage();
+	void SetLanguage(const char *pLanguage);
 
 	//---------------------------------------------------------
 	// this is used for snapping so we know how we can clip the view for the player
@@ -106,6 +107,9 @@ public:
 	SAccData m_AccData;
 
 	class CAccount *m_pAccount;
+
+	int m_BotType;
+
 private:
 	CCharacter *m_pCharacter;
 	CGameContext *m_pGameServer;

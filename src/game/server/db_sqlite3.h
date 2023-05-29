@@ -1,3 +1,4 @@
+#ifdef CONF_SQLITE
 /* (c) Magnus Auvinen. See licence.txt in the root of the distribution for more information. */
 /* If you are missing that file, acquire a complete release at teeworlds.com.                */
 
@@ -9,6 +10,7 @@
 #include <queue>
 #include <string>
 #include <engine/server.h>
+#include "Data/accdata.h"
 
 class CQuery
 {
@@ -57,9 +59,11 @@ public:
 
     bool Register(const char *Username, const char *Password, const char *Language, int ClientID);
     bool Login(const char *Username, const char *Password, int ClientID);
-    bool Apply(const char *Username, const char *Password);
+    bool Apply(const char *Username, const char *Password, SAccData Data);
 };
 
 
+
+#endif
 
 #endif

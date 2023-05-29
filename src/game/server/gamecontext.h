@@ -16,8 +16,16 @@
 #include "gamecontroller.h"
 #include "gameworld.h"
 #include "player.h"
-#include "accdata.h"
+//#include "Data/accdata.h"
+
+#ifdef CONF_SQLITE
 #include "db_sqlite3.h"
+#endif
+
+#ifdef CONF_SQL
+#include "db_mysql.h"
+#endif
+
 /*
 	Tick
 		Game Context (CGameContext::tick)
@@ -48,6 +56,11 @@ class CGameContext : public IGameServer
 	CNetObjHandler m_NetObjHandler;
 	CTuningParams m_Tuning;
 
+	#ifdef CONF_SQL
+	/* SQL */
+	CSQL *m_Sql;
+	#endif
+
 	static void ConsoleOutputCallback_Chat(const char *pStr, void *pUser);
 
 	static void ConLanguage(IConsole::IResult *pResult, void *pUserData);
@@ -55,6 +68,7 @@ class CGameContext : public IGameServer
 	static void ConRegister(IConsole::IResult *pResult, void *pUserData);
 	static void ConLogin(IConsole::IResult *pResult, void *pUserData);
 	static void ConNewPassword(IConsole::IResult *pResult, void *pUserData);
+	static void ConShowMe(IConsole::IResult *pResult, void *pUserData);
 
 	static void ConTuneParam(IConsole::IResult *pResult, void *pUserData);
 	static void ConTuneReset(IConsole::IResult *pResult, void *pUserData);
@@ -90,6 +104,11 @@ public:
 	CCollision *Collision() { return &m_Collision; }
 	CTuningParams *Tuning() { return &m_Tuning; }
 
+	#ifdef CONF_SQL
+	/* SQL */
+	CSQL *Sql() const { return m_Sql; };
+	#endif
+
 	CGameContext();
 	~CGameContext();
 
@@ -98,7 +117,7 @@ public:
 	CEventHandler m_Events;
 	CPlayer *m_apPlayers[MAX_CLIENTS];
 
-	IGameController *m_pController;
+	CGameController *m_pController;
 	CGameWorld m_World;
 
 	// helper functions
@@ -194,14 +213,23 @@ public:
 	virtual const char *Version();
 	virtual const char *NetVersion();
 	
-	// - SQL
+	#ifdef CONF_SQLITE
+	// - SQLite
 	CSql *m_pDatabase;
+	#endif
+#ifdef CONF_SQLITE
 	void Register(const char *Username, const char *Password, int ClientID); // Register account
 	void Login(const char *Username, const char *Password, int ClientID); // Login account
 	bool Apply(int ClientID, class SAccData Data); // Apply account
-	int GetUID(const char *Username, const char *Password); // Get ID
+#endif
+
+#ifdef CONF_SQL
+	void Apply(int ClientID);
+	void Apply(int ClientID, const char NeedyUpdate[256], const char Value[256]); // Apply account
+#endif
 };
 
+#ifdef CONF_SQLITE
 class CQueryBase : public CQuery
 {
 public:
@@ -229,13 +257,14 @@ class CQueryApply: public CQueryBase
 {
 	void OnData();
 public:
-	
-	int m_Xiuwei;
-	int m_Xianqi; 
+	SAccData m_Data;
 };
 
-inline int CmaskAll() { return -1; }
-inline int CmaskOne(int ClientID) { return 1<<ClientID; }
-inline int CmaskAllExceptOne(int ClientID) { return 0x7fffffff^CmaskOne(ClientID); }
-inline bool CmaskIsSet(int Mask, int ClientID) { return (Mask&CmaskOne(ClientID)) != 0; }
+#endif
+
+inline int64 CmaskAll() { return -1; }
+inline int64 CmaskOne(int ClientID) { return (int64)1<<ClientID; }
+inline int64 CmaskAllExceptOne(int ClientID) { return CmaskAll()^CmaskOne(ClientID); }
+inline bool CmaskIsSet(int64 Mask, int ClientID) { return (Mask&CmaskOne(ClientID)) != 0; }
+
 #endif
