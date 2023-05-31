@@ -109,6 +109,9 @@ public:
 	CSQL *Sql() const { return m_Sql; };
 	#endif
 
+	std::vector<SItemDataList> m_vItemDataList;
+
+
 	CGameContext();
 	~CGameContext();
 
@@ -177,7 +180,18 @@ public:
 	void SendBroadcast(const char *pText, int ClientID);
 	void SetClientLanguage(int ClientID, const char *pLanguage);
 
+	// MMOTee
+	struct CVoteOptions
+	{
+		char m_aDescription[VOTE_DESC_LENGTH] = { 0 };
+		char m_aCommand[VOTE_CMD_LENGTH] = { 0 };
+	};
+	array<CVoteOptions> m_PlayerVotes[MAX_CLIENTS];
 
+	void AddVote_VL(int To, const char* aCmd, const char* pText, ...);
+	void AddVote(const char *Desc, const char *Cmd, int ClientID = -1);
+	void InitVotes(int ClientID);
+	void ClearVotes(int ClientID);
 
 	//
 	void CheckPureTuning();
@@ -227,6 +241,9 @@ public:
 	void Apply(int ClientID);
 	void Apply(int ClientID, const char NeedyUpdate[256], const char Value[256]); // Apply account
 #endif
+
+public:
+	static void VData_PrintVote(int CID, const char cmd[256]);
 };
 
 #ifdef CONF_SQLITE

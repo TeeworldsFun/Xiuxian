@@ -580,6 +580,7 @@ set(SERVER_INCLUDES_DIRS
 
 set_glob(GAME_SERVER GLOB_RECURSE src/game/server
   Data/accdata.h
+  Data/itemdata.h
   Data/botdata.h
   Data/tizhidata.h
   Data/zongmendata.h

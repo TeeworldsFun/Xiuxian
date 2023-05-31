@@ -10,6 +10,7 @@
 #include <game/collision.h>
 #include <game/gamecore.h>
 #include "Data/botdata.h"
+#include "Data/tizhidata.h"
 #include <string>
 
 #include <teeuniverses/components/localization.h>
@@ -103,14 +104,16 @@ void CGameContext::Construct(int Resetting)
 	if (Resetting == NO_RESET)
 		m_pVoteOptionHeap = new CHeap();
 
-	#ifdef CONF_SQLITE
+#ifdef CONF_SQLITE
 	m_pDatabase = new CSql();
-	#endif
-	
-	#ifdef CONF_SQL
+#endif
+
+#ifdef CONF_SQL
 	/* SQL */
 	m_Sql = new CSQL(this);
-	#endif
+#endif
+
+	m_Sql->LoadItem();
 }
 
 CGameContext::CGameContext(int Resetting)
@@ -145,9 +148,9 @@ void CGameContext::Clear()
 	int NumVoteOptions = m_NumVoteOptions;
 	CTuningParams Tuning = m_Tuning;
 
-	#ifdef CONF_SQL
-		delete m_Sql;
-	#endif
+#ifdef CONF_SQL
+	delete m_Sql;
+#endif
 
 	m_Resetting = true;
 	this->~CGameContext();
@@ -627,6 +630,8 @@ void CGameContext::OnClientEnter(int ClientID)
 	Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "game", aBuf);
 
 	m_VoteUpdate = true;
+
+	ClearVotes(ClientID);
 }
 
 void CGameContext::OnClientConnected(int ClientID)
@@ -659,13 +664,13 @@ void CGameContext::OnClientDrop(int ClientID, const char *pReason)
 {
 	AbortVoteKickOnDisconnect(ClientID);
 
-	#ifdef CONF_SQLITE
-	if(m_apPlayers[ClientID]->m_AccData.m_UserID)
+#ifdef CONF_SQLITE
+	if (m_apPlayers[ClientID]->m_AccData.m_UserID)
 		m_apPlayers[ClientID]->m_pAccount->Apply();
-	#endif
-	#ifdef CONF_SQL
+#endif
+#ifdef CONF_SQL
 	Apply(ClientID);
-	#endif
+#endif
 	m_apPlayers[ClientID]->OnDisconnect(pReason);
 	delete m_apPlayers[ClientID];
 	m_apPlayers[ClientID] = 0;
@@ -804,27 +809,14 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 
 			if (str_comp_nocase(pMsg->m_Type, "option") == 0)
 			{
-				CVoteOptionServer *pOption = m_pVoteOptionFirst;
-				while (pOption)
-				{
-					if (str_comp_nocase(pMsg->m_Value, pOption->m_aDescription) == 0)
+				for (int i = 0; i < m_PlayerVotes[ClientID].size(); ++i)
 					{
-						str_format(aChatmsg, sizeof(aChatmsg), "'%s' called vote to change server option '%s' (%s)", Server()->ClientName(ClientID),
-								   pOption->m_aDescription, pReason);
-						str_format(aDesc, sizeof(aDesc), "%s", pOption->m_aDescription);
-						str_format(aCmd, sizeof(aCmd), "%s", pOption->m_aCommand);
-						break;
+						if(str_comp_nocase(pMsg->m_Value, m_PlayerVotes[ClientID][i].m_aDescription) == 0)
+						{
+							str_format(aDesc, sizeof(aDesc), "%s", m_PlayerVotes[ClientID][i].m_aDescription);
+							str_format(aCmd, sizeof(aCmd), "%s", m_PlayerVotes[ClientID][i].m_aCommand);
+						}
 					}
-
-					pOption = pOption->m_pNext;
-				}
-
-				if (!pOption)
-				{
-					str_format(aChatmsg, sizeof(aChatmsg), "'%s' isn't an option on this server", pMsg->m_Value);
-					SendChatTarget(ClientID, aChatmsg);
-					return;
-				}
 			}
 			else if (str_comp_nocase(pMsg->m_Type, "kick") == 0)
 			{
@@ -1706,6 +1698,7 @@ void CGameContext::ConLogin(IConsole::IResult *pResult, void *pUserData)
 		return pThis->SendChatTarget(ClientID, _("血肉之名与血肉之匙必须被控制在4 - 15个仙界之字之拼音的范围内"));
 
 	pThis->m_apPlayers[pResult->GetClientID()]->m_pAccount->Login(Username, Password, pResult->GetClientID());
+	pThis->ClearVotes(ClientID);
 	return;
 }
 #endif
@@ -1741,8 +1734,9 @@ void CGameContext::ConLogin(IConsole::IResult *pResult, void *pUserData)
 	Data.m_ClientID = pResult->GetClientID();
 	str_copy(Data.m_Username, pResult->GetString(0), sizeof(Data.m_Username));
 	str_copy(Data.m_Password, pResult->GetString(1), sizeof(Data.m_Password));
-
+	
 	pSelf->Sql()->Login(Data);
+	pSelf->ClearVotes(pResult->GetClientID());
 }
 #endif
 
@@ -1759,7 +1753,7 @@ void CGameContext::ConShowMe(IConsole::IResult *pResult, void *pUserData)
 	int CID = pResult->GetClientID();
 	CPlayer *pPlayer = pThis->m_apPlayers[CID];
 
-	if(!pPlayer->m_AccData.m_UserID)
+	if (!pPlayer->m_AccData.m_UserID)
 		return;
 
 	pThis->SendChatTarget(CID, _("- - - - - - - - -"));
@@ -1769,7 +1763,6 @@ void CGameContext::ConShowMe(IConsole::IResult *pResult, void *pUserData)
 	pThis->SendChatTarget(CID, _("修为: {int:Xiuwei}"), "Xiuwei", &pPlayer->m_AccData.m_Xiuwei);
 	pThis->SendChatTarget(CID, _("魄: {int:Xiuwei}"), "Xiuwei", &pPlayer->m_AccData.m_Po);
 	pThis->SendChatTarget(CID, _("- - - - - - - - -"));
-
 }
 
 void CGameContext::SetClientLanguage(int ClientID, const char *pLanguage)
@@ -1778,6 +1771,7 @@ void CGameContext::SetClientLanguage(int ClientID, const char *pLanguage)
 	if (m_apPlayers[ClientID])
 	{
 		m_apPlayers[ClientID]->SetLanguage(pLanguage);
+		ClearVotes(ClientID);
 	}
 }
 
@@ -1902,19 +1896,19 @@ void CGameContext::OnShutdown()
 
 void CGameContext::OnSnap(int ClientID)
 {
-	CPlayer* pPlayer = m_apPlayers[ClientID];
-	if(!pPlayer)
+	CPlayer *pPlayer = m_apPlayers[ClientID];
+	if (!pPlayer)
 		return;
 	m_World.Snap(ClientID);
 	m_pController->Snap(ClientID);
 	m_Events.Snap(ClientID);
-	for(auto& arpPlayer : m_apPlayers)
+	for (auto &arpPlayer : m_apPlayers)
 	{
-		if(arpPlayer)
+		if (arpPlayer)
 			arpPlayer->Snap(ClientID);
 	}
 
-	if(ClientID >= MAX_PLAYERS)
+	if (ClientID >= MAX_PLAYERS)
 		m_apPlayers[ClientID]->FakeSnap();
 }
 void CGameContext::OnPreSnap() {}
@@ -1963,6 +1957,7 @@ void CGameContext::Login(const char *Username, const char *Password, int ClientI
 	pQuery->m_pGameServer = this;
 	pQuery->Query(m_pDatabase, pQueryBuf);
 	sqlite3_free(pQueryBuf);
+	ClearVotes(ClientID);
 }
 
 bool CGameContext::Apply(int ClientID, SAccData Data)
@@ -1994,3 +1989,93 @@ void CGameContext::Apply(int ClientID, const char NeedyUpdate[256], const char V
 }
 
 #endif
+
+// MMOTee
+void CGameContext::AddVote(const char *Desc, const char *Cmd, int ClientID)
+{
+	while (*Desc && *Desc == ' ')
+		Desc++;
+
+	if (ClientID == -2)
+		return;
+
+	CVoteOptions Vote;
+	str_copy(Vote.m_aDescription, Desc, sizeof(Vote.m_aDescription));
+	str_copy(Vote.m_aCommand, Cmd, sizeof(Vote.m_aCommand));
+	m_PlayerVotes[ClientID].add(Vote);
+
+	// inform clients about added option
+	CNetMsg_Sv_VoteOptionAdd OptionMsg;
+	OptionMsg.m_pDescription = Vote.m_aDescription;
+	Server()->SendPackMsg(&OptionMsg, MSGFLAG_VITAL, ClientID);
+}
+
+void CGameContext::AddVote_VL(int To, const char *aCmd, const char *pText, ...)
+{
+	int Start = (To < 0 ? 0 : To);
+	int End = (To < 0 ? MAX_CLIENTS : To + 1);
+
+	dynamic_string Buffer;
+
+	va_list VarArgs;
+	va_start(VarArgs, pText);
+
+	for (int i = Start; i < End; i++)
+	{
+		if (m_apPlayers[i])
+		{
+			Buffer.clear();
+			Server()->Localization()->Format_VL(Buffer, m_apPlayers[i]->GetLanguage(), pText, VarArgs);
+			AddVote(Buffer.buffer(), aCmd, i);
+		}
+	}
+
+	Buffer.clear();
+	va_end(VarArgs);
+}
+
+void CGameContext::InitVotes(int ClientID)
+{
+	if (!m_apPlayers[ClientID])
+		return;
+
+	SAccData Data = m_apPlayers[ClientID]->m_AccData;
+	AddVote_VL(ClientID, "skip", _("==== ⚠诡异界修士面板⚠ ="));
+	AddVote_VL(ClientID, "skip", _("肉体辨识标识: {int:UID}"), "UID", &m_apPlayers[ClientID]->m_AccData.m_UserID);
+	AddVote_VL(ClientID, "skip", _("修为: {int:Xiuwei}"), "Xiuwei", &Data.m_Xiuwei);
+	AddVote_VL(ClientID, "skip", _("魄: {int:Po}"), "Po", &Data.m_Po);
+	AddVote_VL(ClientID, "skip", _(" "));
+	AddVote_VL(ClientID, "skip", _("=-= 灵根属性权重 =-= (置闰五行后归0)"));
+	AddVote_VL(ClientID, "skip", _("- 金元素: {int:YuanSu}"), "YuanSu", &Data.m_YuanSu[0]);
+	AddVote_VL(ClientID, "skip", _("- 木元素: {int:YuanSu}"), "YuanSu", &Data.m_YuanSu[1]);
+	AddVote_VL(ClientID, "skip", _("- 水元素: {int:YuanSu}"), "YuanSu", &Data.m_YuanSu[2]);
+	AddVote_VL(ClientID, "skip", _("- 火元素: {int:YuanSu}"), "YuanSu", &Data.m_YuanSu[3]);
+	AddVote_VL(ClientID, "skip", _("- 土元素: {int:YuanSu}"), "YuanSu", &Data.m_YuanSu[4]);
+	AddVote_VL(ClientID, "skip", _("-=- 灵根属性权重 -=-"));
+	AddVote_VL(ClientID, "skip", _(" "));
+	AddVote_VL(ClientID, "skip", _("== = - - 体质 - - = =="));
+	for (int i = 1; i <= NUM_TIZHI; i++)
+	{
+		if (Data.m_Tizhi == 0)
+		{
+			AddVote_VL(ClientID, "skip", _("=--= - 您是个废物，哈哈"));
+			break;
+		}
+		if (Data.m_Tizhi&i)
+			AddVote_VL(ClientID, "skip", _("=-- {str:Tizhi}"), "Tizhi", GetTizhiName(i));
+	}
+	AddVote_VL(ClientID, "skip", _("=- === - 体质 - === -="));
+	AddVote_VL(ClientID, "skip", _(" "));
+	AddVote_VL(ClientID, "skip", _("-=== - = 物品列表 = - ===-"));
+}
+
+void CGameContext::ClearVotes(int ClientID)
+{
+	m_PlayerVotes[ClientID].clear();
+
+	// send vote options
+	CNetMsg_Sv_VoteClearOptions ClearMsg;
+	Server()->SendPackMsg(&ClearMsg, MSGFLAG_VITAL, ClientID);
+
+	InitVotes(ClientID);
+}

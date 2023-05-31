@@ -1,6 +1,9 @@
 #ifndef GAME_SERVER_ACCDATA_H
 #define GAME_SERVER_ACCDATA_H
 
+#include <vector>
+#include "itemdata.h"
+
 static const int s_YuansuNum = 5;
 
 struct SAccData
@@ -16,6 +19,8 @@ struct SAccData
 	int m_Tizhi;  // 体质
 
 	int m_YuanSu[s_YuansuNum]; // 元素 保存形式csv
+
+	std::vector<SItemData> m_vItemData;
 };
 
 struct AccDataList

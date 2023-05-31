@@ -8,6 +8,8 @@
 #include "gamecontext.h"
 #include "account.h"
 #include "Data/accdata.h"
+#include "Data/itemdata.h"
+#include <vector>
 
 // player object
 class CPlayer

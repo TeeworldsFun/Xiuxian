@@ -119,16 +119,6 @@ CSql::CSql()
         sqlite3_close(m_pDB);
     }
 
-    char *pQuery = (char *)"CREATE TABLE IF NOT EXISTS Accounts ("
-                           "ID INTEGER				   PRIMARY KEY	   AUTOINCREMENT,"
-                           "Username                   TEXT            NOT NULL,"
-                           "Password                   TEXT            NOT NULL,"
-                           "Language                   TEXT            NOT NULL,"
-                           "Po                     INTEGER         NOT NULL        DEFAULT 0,"
-                           "Xiuwei                     INTEGER         NOT NULL        DEFAULT 1);";
-
-    sqlite3_exec(m_pDB, pQuery, 0, 0, 0);
-
     m_Lock = lock_create();
     m_Running = true;
     thread_init(InitWorker, this);

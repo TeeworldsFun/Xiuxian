@@ -11,6 +11,7 @@
 #include <cppconn/statement.h>
 
 #include "Data/accdata.h"
+#include "Data/itemdata.h"
 
 class CSQL
 {
@@ -38,6 +39,8 @@ public:
 
 	void Login(SAccData AData);
 	void Update(int CID, SAccData AData, const char m_NeedUpdate[256], const char m_Value[256]);
+
+	void LoadItem();
 };
 
 struct FaBao
@@ -53,4 +56,5 @@ struct FaBao_Update
 	SAccData Data;
 	CSQL *m_SqlData;
 };
+
 #endif

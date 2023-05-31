@@ -22,6 +22,8 @@ CSQL::CSQL(class CGameContext *pGameServer)
     pass = g_Config.m_SvSqlPw;           // 密码
     ip = g_Config.m_SvSqlIp;             // 数据库所在IP
     port = g_Config.m_SvSqlPort;         // 数据库端口
+
+   // LoadItem();
 }
 
 bool CSQL::connect()
@@ -94,7 +96,7 @@ static void create_account_thread(void *user)
                 else
                 {
                     // create Account \o/
-                    str_format(buf, sizeof(buf), "INSERT INTO %s_Accounts(Username, Password, Language) VALUES ('%s', '%s', '%s');",
+                    str_format(buf, sizeof(buf), "INSERT INTO %s_Accounts(Username, Password, Language, Yuansu) VALUES ('%s', '%s', '%s', '0|0|0|0|0');",
                                Data->m_SqlData->prefix,
                                Data->Data.m_Username, Data->Data.m_Password, GameServer()->m_apPlayers[Data->Data.m_ClientID]->GetLanguage());
 
@@ -102,10 +104,10 @@ static void create_account_thread(void *user)
                     dbg_msg("SQL", "Account '%s' was successfully created", Data->Data.m_Username);
 
                     GameServer()->SendChatTarget(Data->Data.m_ClientID, _("⚠⚠⚠⚠⚠⚠⚠⚠ ! ~血⚠肉⚠苦⚠痛~ ! ⚠⚠⚠⚠⚠⚠⚠⚠"));
-			        GameServer()->SendChatTarget(Data->Data.m_ClientID, _("血肉之名: {str:Username}"), "Username", Data->Data.m_Username);
-			        GameServer()->SendChatTarget(Data->Data.m_ClientID, _("血肉之匙: {str:Password}"), "Password", Data->Data.m_Password);
-			        GameServer()->SendChatTarget(Data->Data.m_ClientID, _("使用 /login {str:u} {str:p} 来与你的血肉之体共鸣"), "u", Data->Data.m_Username, "p", Data->Data.m_Password);
-			        GameServer()->SendChatTarget(Data->Data.m_ClientID, _("⚠⚠⚠⚠⚠⚠⚠⚠ ! ~魂⚠体⚠飞⚠升~ ! ⚠⚠⚠⚠⚠⚠⚠⚠"));
+                    GameServer()->SendChatTarget(Data->Data.m_ClientID, _("血肉之名: {str:Username}"), "Username", Data->Data.m_Username);
+                    GameServer()->SendChatTarget(Data->Data.m_ClientID, _("血肉之匙: {str:Password}"), "Password", Data->Data.m_Password);
+                    GameServer()->SendChatTarget(Data->Data.m_ClientID, _("使用 /login {str:u} {str:p} 来与你的血肉之体共鸣"), "u", Data->Data.m_Username, "p", Data->Data.m_Password);
+                    GameServer()->SendChatTarget(Data->Data.m_ClientID, _("⚠⚠⚠⚠⚠⚠⚠⚠ ! ~魂⚠体⚠飞⚠升~ ! ⚠⚠⚠⚠⚠⚠⚠⚠"));
                 }
 
                 // delete statement
@@ -252,7 +254,7 @@ static void login_thread(void *user)
                         // check if Account allready is logged in
                         for (int i = 0; i < MAX_CLIENTS; i++)
                         {
-                            if(!GameServer()->m_apPlayers[i])
+                            if (!GameServer()->m_apPlayers[i])
                                 continue;
 
                             if (GameServer()->m_apPlayers[i]->m_AccData.m_UserID == Data->m_SqlData->results->getInt("ID"))
@@ -279,6 +281,7 @@ static void login_thread(void *user)
                         GameServer()->m_apPlayers[Data->Data.m_ClientID]->m_AccData.m_UserID = Data->m_SqlData->results->getInt("ID");
                         GameServer()->m_apPlayers[Data->Data.m_ClientID]->m_AccData.m_Xiuwei = Data->m_SqlData->results->getInt("Xiuwei");
                         GameServer()->m_apPlayers[Data->Data.m_ClientID]->m_AccData.m_Po = Data->m_SqlData->results->getInt("Po");
+                        GameServer()->m_apPlayers[Data->Data.m_ClientID]->m_AccData.m_Tizhi = Data->m_SqlData->results->getInt("Tizhi");
 
                         // login should be the last thing
                         dbg_msg("SQL", "Account '%s' logged in sucessfully", Data->Data.m_Username);
@@ -300,7 +303,51 @@ static void login_thread(void *user)
 
                     GameServer()->SendChatTarget(Data->Data.m_ClientID, _("⚠ 共鸣失败 ⚠ 此方世界没有找到对应血肉体 ⚠"));
                 }
+            }
+            catch (sql::SQLException &e)
+            {
+                dbg_msg("SQL", "ERROR: Could not login Account(%s)", e.what());
+            }
 
+            try
+            {
+                // check if Account exists
+                char buf[1024];
+                str_format(buf, sizeof(buf), "SELECT * FROM %s_uItemList WHERE ID='%d';",
+                           Data->m_SqlData->prefix, Data->Data.m_UserID);
+                Data->m_SqlData->results = Data->m_SqlData->statement->executeQuery(buf);
+                if (Data->m_SqlData->results->next())
+                {
+                    // 在这里赋予玩家他账号里的东西
+                    for (int i = 0; i < NUM_ITEMDATA; i++)
+                    {
+                        // check for right pw and get data
+                        str_format(buf, sizeof(buf), "SELECT * FROM %s_uItemList WHERE ID='%d' AND ItemID='%d';",
+                                   Data->m_SqlData->prefix, Data->Data.m_UserID, i);
+
+                        SItemData IData;
+                        IData.m_UserID = Data->Data.m_ClientID;
+                        IData.m_ItemID = i;
+                        IData.m_Num = 0;
+                        str_copy(IData.m_Extra, "", sizeof(IData.m_Extra));
+                        GameServer()->m_apPlayers[Data->Data.m_ClientID]->m_AccData.m_vItemData.push_back(IData);
+
+                        // create results
+                        Data->m_SqlData->results = Data->m_SqlData->statement->executeQuery(buf);
+                        if (Data->m_SqlData->results->next())
+                        {
+                            GameServer()->m_apPlayers[Data->Data.m_ClientID]->m_AccData.m_vItemData[i].m_Num = Data->m_SqlData->results->getInt("Num");
+                            str_format(GameServer()->m_apPlayers[Data->Data.m_ClientID]->m_AccData.m_vItemData[i].m_Extra,
+                                       sizeof(GameServer()->m_apPlayers[Data->Data.m_ClientID]->m_AccData.m_vItemData[i].m_Extra),
+                                       (const char *)Data->m_SqlData->results->getString("Num").c_str());
+                        }
+                        else
+                            continue;
+                    }
+
+                    // login should be the last thing
+                    dbg_msg("SQL", "Account '%s' logged in sucessfully", Data->Data.m_Username);
+                }
                 // delete statement and results
                 delete Data->m_SqlData->statement;
                 delete Data->m_SqlData->results;
@@ -357,8 +404,6 @@ static void update_thread(void *user)
                            Data->m_SqlData->prefix, Data->m_NeedUpdate, Data->m_Value, Data->Data.m_UserID);
                 Data->m_SqlData->statement->execute(buf);
 
-                str_append(buf, " WHERE UserID = %d;", Data->Data.m_UserID);
-
                 // get Account name from database
                 str_format(buf, sizeof(buf), "SELECT Username FROM %s_Accounts WHERE ID='%d';", Data->m_SqlData->prefix, Data->Data.m_UserID);
 
@@ -403,6 +448,76 @@ void CSQL::Update(int CID, SAccData AData, const char m_NeedUpdate[256], const c
     str_format(_FaBao->m_Value, sizeof(_FaBao->m_Value), m_Value);
 
     void *update_account_thread = thread_init(update_thread, _FaBao);
+#if defined(CONF_FAMILY_UNIX)
+    pthread_detach((pthread_t)update_account_thread);
+#endif
+}
+
+static void Load_item_thread(void *user)
+{
+    dbg_msg("sajhdlwa", "shajwla8uuuu");
+    lock_wait(sql_lock);
+    CSQL *SqlData = (CSQL *)user;
+
+    // Connect to database
+    if (SqlData->connect())
+    {
+        dbg_msg("sajhdlwa", "OK");
+        try
+        {
+            char buf[512];
+            for (int i = 0; i <= NUM_ITEMDATA; i++)
+            {
+                str_format(buf, sizeof(buf), "SELECT * FROM %s_ItemList WHERE ID='%d';", SqlData->prefix, i);
+                SItemDataList IDataList;
+                IDataList.m_ItemID = i;
+                IDataList.m_ItemType = 0;
+                IDataList.m_Maxium = 0;
+
+                // create results
+                SqlData->results = SqlData->statement->executeQuery(buf);
+                if (SqlData->results->next())
+                {
+                    IDataList.m_ItemType = SqlData->results->getInt("ItemType");
+                    IDataList.m_Maxium = SqlData->results->getInt("Maxium");;
+                    str_format(IDataList.m_Name,
+                               sizeof(IDataList.m_Name),
+                               (const char *)SqlData->results->getString("Name").c_str());
+
+                    str_format(IDataList.m_Desc,
+                               sizeof(IDataList.m_Desc),
+                               (const char *)SqlData->results->getString("Desc").c_str());
+                    
+                    dbg_msg("LoadItemThread", "%d|%d|%d|%s|%s", i, IDataList.m_ItemType, IDataList.m_Maxium, IDataList.m_Name, IDataList.m_Desc);
+                }
+                else
+                {
+                    GameServer()->m_vItemDataList.push_back(IDataList);
+                    continue;
+                }
+                GameServer()->m_vItemDataList.push_back(IDataList);
+            }
+
+            // delete statement and results
+            delete SqlData->statement;
+            delete SqlData->results;
+        }
+        catch (sql::SQLException &e)
+        {
+            dbg_msg("SQL", "ERROR: Could not update Account");
+        }
+
+        // disconnect from database
+        SqlData->disconnect();
+    }
+
+    lock_unlock(sql_lock);
+}
+
+void CSQL::LoadItem()
+{
+    dbg_msg("sajhdlwa", "shajwla8uuuus888888888");
+    void *update_account_thread = thread_init(Load_item_thread, this);
 #if defined(CONF_FAMILY_UNIX)
     pthread_detach((pthread_t)update_account_thread);
 #endif

@@ -1,5 +1,5 @@
-#ifndef GAME_SERVER_ZUOWANGDAO_NAMES
-#define GAME_SERVER_ZUOWANGDAO_NAMES
+#ifndef GAME_SERVER_ZUOWANGDAO_NAMES_H
+#define GAME_SERVER_ZUOWANGDAO_NAMES_H
 
 static const char *ZWD_XuLieNames[] = {
     "一饼",
