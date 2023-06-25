@@ -8,6 +8,8 @@
 #include <engine/shared/protocol.h>
 #include <base/math.h>
 
+#include <game/generated/protocol.h>
+
 class IServer : public IInterface
 {
 	MACRO_INTERFACE("server", 0)
@@ -16,13 +18,14 @@ protected:
 	int m_TickSpeed;
 
 public:
-	class CLocalization* m_pLocalization;
+	class CLocalization *m_pLocalization;
 	enum
 	{
-		AUTHED_NO=0,
+		AUTHED_NO = 0,
 		AUTHED_MOD,
 		AUTHED_ADMIN,
 	};
+
 public:
 	/*
 		Structure: CClientInfo
@@ -31,9 +34,10 @@ public:
 	{
 		const char *m_pName;
 		int m_Latency;
+		bool m_CustClt;
 	};
 
-	inline class CLocalization* Localization() { return m_pLocalization; }
+	inline class CLocalization *Localization() { return m_pLocalization; }
 
 	int Tick() const { return m_CurrentGameTick; }
 	int TickSpeed() const { return m_TickSpeed; }
@@ -48,43 +52,101 @@ public:
 
 	virtual int SendMsg(CMsgPacker *pMsg, int Flags, int ClientID) = 0;
 
-
-	bool Translate(int& Target, int Client)
-	{
-		int* pMap = GetIdMap(Client);
-		bool Found = false;
-		for(int i = 0; i < VANILLA_MAX_CLIENTS; i++)
-		{
-			if(Target == pMap[i])
-			{
-				Target = i;
-				Found = true;
-				break;
-			}
-		}
-		return Found;
-	}
-
-	bool ReverseTranslate(int& Target, int Client)
-	{
-		Target = clamp(Target, 0, VANILLA_MAX_CLIENTS - 1);
-		int* pMap = GetIdMap(Client);
-		if(pMap[Target] == -1)
-			return false;
-		Target = pMap[Target];
-		return true;
-	}
-
-	template<class T>
+	template <class T>
 	int SendPackMsg(T *pMsg, int Flags, int ClientID)
 	{
 		CMsgPacker Packer(pMsg->MsgID());
+		int result = 0;
+		T tmp;
+		if (ClientID == -1)
+		{
+			for(int i = 0; i < MAX_CLIENTS; i++)
+				if(ClientIngame(i))
+				{
+					mem_copy(&tmp, pMsg, sizeof(T));
+					result = SendPackMsgTranslate(&tmp, Flags, i);
+				}
+		} else {
+			mem_copy(&tmp, pMsg, sizeof(T));
+			result = SendPackMsgTranslate(&tmp, Flags, ClientID);
+		}
+		return result;
+	}
+
+	template<class T>
+	int SendPackMsgTranslate(T *pMsg, int Flags, int ClientID)
+	{
+		return SendPackMsgOne(pMsg, Flags, ClientID);
+	}
+
+	int SendPackMsgTranslate(CNetMsg_Sv_Emoticon *pMsg, int Flags, int ClientID)
+	{
+		return Translate(pMsg->m_ClientID, ClientID) && SendPackMsgOne(pMsg, Flags, ClientID);
+	}
+
+	char msgbuf[1000];
+
+	int SendPackMsgTranslate(CNetMsg_Sv_Chat *pMsg, int Flags, int ClientID)
+	{
+		if (pMsg->m_ClientID >= 0 && !Translate(pMsg->m_ClientID, ClientID))
+		{
+			str_format(msgbuf, sizeof(msgbuf), "%s: %s", ClientName(pMsg->m_ClientID), pMsg->m_pMessage);
+			pMsg->m_pMessage = msgbuf;
+			pMsg->m_ClientID = VANILLA_MAX_CLIENTS - 1;
+		}
+		return SendPackMsgOne(pMsg, Flags, ClientID);
+	}
+
+	int SendPackMsgTranslate(CNetMsg_Sv_KillMsg *pMsg, int Flags, int ClientID)
+	{
+		if (!Translate(pMsg->m_Victim, ClientID)) return 0;
+		if (!Translate(pMsg->m_Killer, ClientID)) pMsg->m_Killer = pMsg->m_Victim;
+		return SendPackMsgOne(pMsg, Flags, ClientID);
+	}
+
+	template<class T>
+	int SendPackMsgOne(T *pMsg, int Flags, int ClientID)
+	{
+        CMsgPacker Packer(pMsg->MsgID());
 		if(pMsg->Pack(&Packer))
 			return -1;
 		return SendMsg(&Packer, Flags, ClientID);
 	}
 
-	virtual void SetClientName(int ClientID, char const *pName) = 0;
+	bool Translate(int& target, int client)
+	{
+		CClientInfo info;
+		GetClientInfo(client, &info);
+		if (info.m_CustClt)
+			return true;
+		int* map = GetIdMap(client);
+		bool found = false;
+		for (int i = 0; i < VANILLA_MAX_CLIENTS; i++)
+		{
+			if (target == map[i])
+			{
+				target = i;
+				found = true;
+				break;
+			}
+		}
+		return found;
+	}
+
+	bool ReverseTranslate(int& target, int client)
+	{
+		CClientInfo info;
+		GetClientInfo(client, &info);
+		if (info.m_CustClt)
+			return true;
+		int* map = GetIdMap(client);
+		if (map[target] == -1)
+			return false;
+		target = map[target];
+		return true;
+	}
+
+	virtual void SetClientName(int ClientID, char const *pName, bool Bot = false) = 0;
 	virtual void SetClientClan(int ClientID, char const *pClan) = 0;
 	virtual void SetClientCountry(int ClientID, int Country) = 0;
 	virtual void SetClientScore(int ClientID, int Score) = 0;
@@ -97,20 +159,23 @@ public:
 
 	enum
 	{
-		RCON_CID_SERV=-1,
-		RCON_CID_VOTE=-2,
+		RCON_CID_SERV = -1,
+		RCON_CID_VOTE = -2,
 	};
 	virtual void SetRconCID(int ClientID) = 0;
 	virtual bool IsAuthed(int ClientID) = 0;
 	virtual void Kick(int ClientID, const char *pReason) = 0;
 
-	virtual int* GetIdMap(int ClientID) = 0;
-
 	virtual void DemoRecorder_HandleAutoStart() = 0;
 	virtual bool DemoRecorder_IsRecording() = 0;
 
-	virtual const char* GetClientLanguage(int ClientID) = 0;
-	virtual void SetClientLanguage(int ClientID, const char* pLanguage) = 0;
+	virtual const char *GetClientLanguage(int ClientID) = 0;
+	virtual void SetClientLanguage(int ClientID, const char *pLanguage) = 0;
+
+	virtual void AddZombie(const char *Name) = 0;
+
+	virtual int* GetIdMap(int ClientID) = 0;
+	virtual void SetCustClt(int ClientID) = 0;
 };
 
 class IGameServer : public IInterface
@@ -129,7 +194,7 @@ public:
 
 	virtual void OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID) = 0;
 
-	virtual void OnClientConnected(int ClientID) = 0;
+	virtual void OnClientConnected(int ClientID, bool AI = false) = 0;
 	virtual void OnClientEnter(int ClientID) = 0;
 	virtual void OnClientDrop(int ClientID, const char *pReason) = 0;
 	virtual void OnClientDirectInput(int ClientID, void *pInput) = 0;
@@ -143,6 +208,11 @@ public:
 	virtual const char *NetVersion() = 0;
 
 	virtual void OnSetAuthed(int ClientID, int Level) = 0;
+
+	virtual bool AIInputUpdateNeeded(int ClientID) = 0;
+	virtual void AIUpdateInput(int ClientID, int *Data) = 0; // MAX_INPUT_SIZE
+
+	virtual void AddZombie(const char *Name) = 0;
 };
 
 extern IGameServer *CreateGameServer();

@@ -60,21 +60,24 @@ public:
 	void GiveNinja();
 
 	void SetEmote(int Emote, int Tick);
+	void SetEmoteFor(int Emote, int Ticks, int LockEmote = 0, bool UseTime = true);
 
 	bool IsAlive() const { return m_Alive; }
 	class CPlayer *GetPlayer() { return m_pPlayer; }
 
-	int GetBotType();
-	bool IsBot() { return GetBotType(); }
-private:
-	// player controlling this character
-	class CPlayer *m_pPlayer;
+	bool Hooking();
+	int HookedPlayer();
 
-	bool m_Alive;
+	CCharacterCore GetCore(){ return m_Core; }
+	vec2 GetPosition(){ return m_Pos; }
+	
+	vec2 GetVel(){ return m_Core.m_Vel; }
 
-	// weapon info
-	CEntity *m_apHitObjects[10];
-	int m_NumObjectsHit;
+	void AutoWeaponChange();
+
+	bool m_IsBot;
+
+	int GetActiveWeapon(){ return m_ActiveWeapon; }
 
 	struct WeaponStat
 	{
@@ -85,9 +88,19 @@ private:
 
 	} m_aWeapons[NUM_WEAPONS];
 
+private:
+	// player controlling this character
+	class CPlayer *m_pPlayer;
+
 	int m_ActiveWeapon;
 	int m_LastWeapon;
 	int m_QueuedWeapon;
+
+	bool m_Alive;
+
+	// weapon info
+	CEntity *m_apHitObjects[10];
+	int m_NumObjectsHit;
 
 	int m_ReloadTimer;
 	int m_AttackTick;
@@ -96,6 +109,7 @@ private:
 
 	int m_EmoteType;
 	int m_EmoteStop;
+	int m_EmoteLockStop;
 
 	// last tick that the player took any action ie some input
 	int m_LastAction;

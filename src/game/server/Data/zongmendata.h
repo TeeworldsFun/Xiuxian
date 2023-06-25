@@ -17,7 +17,19 @@ enum
     ZONGMEN_ZHONGYINMIAO, // 中阴庙
     ZONGMEN_FAJIAO,       // 法教
     ZONGMEN_FANGXIANDAO,  // 方仙道
+    ZONGMEN_QINGFENGGUAN, // 清风观
     ZONGMEN_ZUOWANGDAO,   // 何谓坐忘道? 堕其肢体，黜遁聪者，离形去知，同于大通，此谓坐忘。
+
+    __COUNT__NUM___________ZONGMEN___COUNT__,
+    NUM_ZONGMEN = __COUNT__NUM___________ZONGMEN___COUNT__ - 1,
+};
+
+struct SZongMenData
+{
+    int m_ID;
+    char m_Name[64];
+    char m_Desc[512];
+    int m_ZongZhu;
 };
 
 #endif

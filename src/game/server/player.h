@@ -11,6 +11,8 @@
 #include "Data/itemdata.h"
 #include <vector>
 
+#include "ai.h"
+
 // player object
 class CPlayer
 {
@@ -19,8 +21,6 @@ class CPlayer
 public:
 	CPlayer(CGameContext *pGameServer, int ClientID, int Team);
 	virtual ~CPlayer();
-
-	void Init(int CID);
 
 	void TryRespawn();
 	void Respawn();
@@ -110,7 +110,11 @@ public:
 
 	class CAccount *m_pAccount;
 
-	int m_BotType;
+	CAI *m_pAI;
+	bool m_IsBot;
+	
+	void AITick();
+	bool AIInputChanged();
 
 private:
 	CCharacter *m_pCharacter;

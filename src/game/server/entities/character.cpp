@@ -46,6 +46,22 @@ CCharacter::CCharacter(CGameWorld *pWorld)
 	m_Armor = 0;
 }
 
+bool CCharacter::Hooking()
+{
+	if (m_Core.m_HookState == HOOK_GRABBED || m_Core.m_HookState == HOOK_FLYING)
+		return true;
+
+	return false;
+}
+
+int CCharacter::HookedPlayer()
+{
+	if (m_Core.m_HookState == HOOK_GRABBED && m_Core.m_HookedPlayer >= 0)
+		return m_Core.m_HookedPlayer;
+
+	return -1;
+}
+
 void CCharacter::Reset()
 {
 	Destroy();
@@ -53,6 +69,8 @@ void CCharacter::Reset()
 
 bool CCharacter::Spawn(CPlayer *pPlayer, vec2 Pos)
 {
+	m_IsBot = false;
+	m_EmoteLockStop = 0;
 	m_EmoteStop = -1;
 	m_LastAction = -1;
 	m_LastNoAmmoSound = -1;
@@ -75,7 +93,13 @@ bool CCharacter::Spawn(CPlayer *pPlayer, vec2 Pos)
 	GameServer()->m_World.InsertEntity(this);
 	m_Alive = true;
 
-	GameServer()->m_pController->OnCharacterSpawn(this);
+	GameServer()->m_pController->OnCharacterSpawn(this, pPlayer->m_IsBot);
+
+	if (pPlayer->m_pAI)
+	{
+		pPlayer->m_pAI->OnCharacterSpawn(this);
+		m_IsBot = true;
+	}
 
 	return true;
 }
@@ -249,6 +273,9 @@ void CCharacter::FireWeapon()
 
 	bool FullAuto = false;
 	if (m_ActiveWeapon == WEAPON_GRENADE || m_ActiveWeapon == WEAPON_SHOTGUN || m_ActiveWeapon == WEAPON_RIFLE)
+		FullAuto = true;
+
+	if (m_IsBot)
 		FullAuto = true;
 
 	// check if we gonna fire
@@ -465,6 +492,9 @@ void CCharacter::GiveNinja()
 
 void CCharacter::SetEmote(int Emote, int Tick)
 {
+	if (m_EmoteLockStop > Server()->Tick())
+		return;
+
 	m_EmoteType = Emote;
 	m_EmoteStop = Tick;
 }
@@ -595,7 +625,7 @@ void CCharacter::TickDefered()
 	}
 
 	int Events = m_Core.m_TriggeredEvents;
-	int Mask = CmaskAllExceptOne(m_pPlayer->GetCID());
+	int64 Mask = CmaskAllExceptOne(m_pPlayer->GetCID());
 
 	if (Events & COREEVENT_GROUND_JUMP)
 		GameServer()->CreateSound(m_Pos, SOUND_PLAYER_JUMP, Mask);
@@ -698,6 +728,10 @@ bool CCharacter::TakeDamage(vec2 Force, int Dmg, int From, int Weapon)
 {
 	m_Core.m_Vel += Force;
 
+	// signal AI
+	if (Dmg > 0 && GetPlayer()->m_pAI && Weapon >= 0)
+		GetPlayer()->m_pAI->ReceiveDamage(From, Dmg);
+
 	if (GameServer()->m_pController->IsFriendlyFire(m_pPlayer->GetCID(), From) && !g_Config.m_SvTeamdamage)
 		return false;
 
@@ -749,7 +783,7 @@ bool CCharacter::TakeDamage(vec2 Force, int Dmg, int From, int Weapon)
 	// do damage Hit sound
 	if (From >= 0 && From != m_pPlayer->GetCID() && GameServer()->m_apPlayers[From])
 	{
-		int Mask = CmaskOne(From);
+		int64 Mask = CmaskOne(From);
 		for (int i = 0; i < MAX_CLIENTS; i++)
 		{
 			if (GameServer()->m_apPlayers[i] && GameServer()->m_apPlayers[i]->GetTeam() == TEAM_SPECTATORS && GameServer()->m_apPlayers[i]->m_SpectatorID == From)
@@ -790,10 +824,15 @@ bool CCharacter::TakeDamage(vec2 Force, int Dmg, int From, int Weapon)
 
 void CCharacter::Snap(int SnappingClient)
 {
+	int Id = m_pPlayer->GetCID();
+
+	if (!Server()->Translate(Id, SnappingClient))
+		return;
+
 	if (NetworkClipped(SnappingClient))
 		return;
 
-	CNetObj_Character *pCharacter = static_cast<CNetObj_Character *>(Server()->SnapNewItem(NETOBJTYPE_CHARACTER, m_pPlayer->GetCID(), sizeof(CNetObj_Character)));
+	CNetObj_Character *pCharacter = static_cast<CNetObj_Character *>(Server()->SnapNewItem(NETOBJTYPE_CHARACTER, Id, sizeof(CNetObj_Character)));
 	if (!pCharacter)
 		return;
 
@@ -816,6 +855,12 @@ void CCharacter::Snap(int SnappingClient)
 	{
 		m_EmoteType = EMOTE_NORMAL;
 		m_EmoteStop = -1;
+	}
+
+	if (pCharacter->m_HookedPlayer != -1)
+	{
+		if (!Server()->Translate(pCharacter->m_HookedPlayer, SnappingClient))
+			pCharacter->m_HookedPlayer = -1;
 	}
 
 	pCharacter->m_Emote = m_EmoteType;
@@ -847,7 +892,42 @@ void CCharacter::Snap(int SnappingClient)
 	pCharacter->m_PlayerFlags = GetPlayer()->m_PlayerFlags;
 }
 
-int CCharacter::GetBotType()
+void CCharacter::SetEmoteFor(int Emote, int Ticks, int LockEmote, bool UseTime)
 {
-	return GetPlayer()->m_BotType;
+	if (m_EmoteLockStop > Server()->Tick() && LockEmote == 0)
+		return;
+
+	m_EmoteType = Emote;
+
+	if (UseTime)
+	{
+		m_EmoteStop = Server()->Tick() + Ticks * Server()->TickSpeed() / 1000;
+		if (LockEmote > 0)
+			m_EmoteLockStop = Server()->Tick() + LockEmote * Server()->TickSpeed() / 1000;
+	}
+	else
+	{
+		m_EmoteStop = Server()->Tick() + Ticks;
+		if (LockEmote > 0)
+			m_EmoteLockStop = Server()->Tick() + LockEmote;
+	}
+}
+
+void CCharacter::AutoWeaponChange()
+{
+	if(m_ActiveWeapon != WEAPON_HAMMER)
+		return;
+	if (frandom() * 100 > 10 && m_ActiveWeapon != WEAPON_HAMMER)
+		return;
+
+	// -1 because smoke grenade shouldn't be included
+	int w = rand() % (NUM_WEAPONS - 1);
+
+	if (m_aWeapons[w].m_Got)
+	{
+		if (m_aWeapons[w].m_Ammo > 0)
+		{
+			SetWeapon(w);
+		}
+	}
 }

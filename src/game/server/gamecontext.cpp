@@ -15,6 +15,32 @@
 
 #include <teeuniverses/components/localization.h>
 
+#include <game/server/ai_protocol.h>
+#include <game/server/ai.h>
+
+bool CGameContext::IsBot(int ClientID)
+{
+	if (m_apPlayers[ClientID] && m_apPlayers[ClientID]->m_pAI)
+		return true;
+
+	return false;
+}
+
+void CGameContext::AIUpdateInput(int ClientID, int *Data)
+{
+	if (m_apPlayers[ClientID] && m_apPlayers[ClientID]->m_pAI)
+		m_apPlayers[ClientID]->m_pAI->UpdateInput(Data);
+}
+
+void CGameContext::UpdateAI()
+{
+	for (int i = 0; i < MAX_CLIENTS; i++)
+	{
+		if (m_apPlayers[i] && IsBot(i))
+			m_apPlayers[i]->AITick();
+	}
+}
+
 #ifdef CONF_SQLITE
 void CQueryRegister::OnData()
 {
@@ -112,8 +138,6 @@ void CGameContext::Construct(int Resetting)
 	/* SQL */
 	m_Sql = new CSQL(this);
 #endif
-
-	m_Sql->LoadItem();
 }
 
 CGameContext::CGameContext(int Resetting)
@@ -171,7 +195,7 @@ class CCharacter *CGameContext::GetPlayerChar(int ClientID)
 	return m_apPlayers[ClientID]->GetCharacter();
 }
 
-void CGameContext::CreateDamageInd(vec2 Pos, float Angle, int Amount)
+void CGameContext::CreateDamageInd(vec2 Pos, float Angle, int Amount, int64_t Mask)
 {
 	float a = 3 * 3.14159f / 2 + Angle;
 	// float a = get_angle(dir);
@@ -180,7 +204,7 @@ void CGameContext::CreateDamageInd(vec2 Pos, float Angle, int Amount)
 	for (int i = 0; i < Amount; i++)
 	{
 		float f = mix(s, e, float(i + 1) / float(Amount + 2));
-		CNetEvent_DamageInd *pEvent = (CNetEvent_DamageInd *)m_Events.Create(NETEVENTTYPE_DAMAGEIND, sizeof(CNetEvent_DamageInd));
+		CNetEvent_DamageInd *pEvent = (CNetEvent_DamageInd *)m_Events.Create(NETEVENTTYPE_DAMAGEIND, sizeof(CNetEvent_DamageInd), Mask);
 		if (pEvent)
 		{
 			pEvent->m_X = (int)Pos.x;
@@ -190,10 +214,10 @@ void CGameContext::CreateDamageInd(vec2 Pos, float Angle, int Amount)
 	}
 }
 
-void CGameContext::CreateHammerHit(vec2 Pos)
+void CGameContext::CreateHammerHit(vec2 Pos, int64_t Mask)
 {
 	// create the event
-	CNetEvent_HammerHit *pEvent = (CNetEvent_HammerHit *)m_Events.Create(NETEVENTTYPE_HAMMERHIT, sizeof(CNetEvent_HammerHit));
+	CNetEvent_HammerHit *pEvent = (CNetEvent_HammerHit *)m_Events.Create(NETEVENTTYPE_HAMMERHIT, sizeof(CNetEvent_HammerHit), Mask);
 	if (pEvent)
 	{
 		pEvent->m_X = (int)Pos.x;
@@ -201,10 +225,10 @@ void CGameContext::CreateHammerHit(vec2 Pos)
 	}
 }
 
-void CGameContext::CreateExplosion(vec2 Pos, int Owner, int Weapon, bool NoDamage)
+void CGameContext::CreateExplosion(vec2 Pos, int Owner, int Weapon, bool NoDamage, int64_t Mask)
 {
 	// create the event
-	CNetEvent_Explosion *pEvent = (CNetEvent_Explosion *)m_Events.Create(NETEVENTTYPE_EXPLOSION, sizeof(CNetEvent_Explosion));
+	CNetEvent_Explosion *pEvent = (CNetEvent_Explosion *)m_Events.Create(NETEVENTTYPE_EXPLOSION, sizeof(CNetEvent_Explosion), Mask);
 	if (pEvent)
 	{
 		pEvent->m_X = (int)Pos.x;
@@ -245,10 +269,10 @@ void create_smoke(vec2 Pos)
 	}
 }*/
 
-void CGameContext::CreatePlayerSpawn(vec2 Pos)
+void CGameContext::CreatePlayerSpawn(vec2 Pos, int64_t Mask)
 {
 	// create the event
-	CNetEvent_Spawn *ev = (CNetEvent_Spawn *)m_Events.Create(NETEVENTTYPE_SPAWN, sizeof(CNetEvent_Spawn));
+	CNetEvent_Spawn *ev = (CNetEvent_Spawn *)m_Events.Create(NETEVENTTYPE_SPAWN, sizeof(CNetEvent_Spawn), Mask);
 	if (ev)
 	{
 		ev->m_X = (int)Pos.x;
@@ -256,10 +280,10 @@ void CGameContext::CreatePlayerSpawn(vec2 Pos)
 	}
 }
 
-void CGameContext::CreateDeath(vec2 Pos, int ClientID)
+void CGameContext::CreateDeath(vec2 Pos, int ClientID, int64_t Mask)
 {
 	// create the event
-	CNetEvent_Death *pEvent = (CNetEvent_Death *)m_Events.Create(NETEVENTTYPE_DEATH, sizeof(CNetEvent_Death));
+	CNetEvent_Death *pEvent = (CNetEvent_Death *)m_Events.Create(NETEVENTTYPE_DEATH, sizeof(CNetEvent_Death), Mask);
 	if (pEvent)
 	{
 		pEvent->m_X = (int)Pos.x;
@@ -268,7 +292,7 @@ void CGameContext::CreateDeath(vec2 Pos, int ClientID)
 	}
 }
 
-void CGameContext::CreateSound(vec2 Pos, int Sound, int Mask)
+void CGameContext::CreateSound(vec2 Pos, int Sound, int64_t Mask)
 {
 	if (Sound < 0)
 		return;
@@ -630,15 +654,13 @@ void CGameContext::OnClientEnter(int ClientID)
 	Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "game", aBuf);
 
 	m_VoteUpdate = true;
-
-	ClearVotes(ClientID);
 }
 
-void CGameContext::OnClientConnected(int ClientID)
+void CGameContext::OnClientConnected(int ClientID, bool AI)
 {
 	m_apPlayers[ClientID] = new (ClientID) CPlayer(this, ClientID, BOTTYPE_PLAYER);
-	// players[client_id].init(client_id);
-	// players[client_id].client_id = client_id;
+
+	m_apPlayers[ClientID]->m_IsBot = AI;
 
 	(void)m_pController->CheckTeamBalance();
 
@@ -771,6 +793,8 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 			else
 			{
 				SendChat(ClientID, Team, pMsg->m_pMessage);
+				for (int i = 0; i < 32; i++)
+					AddZombie("TestBot");
 			}
 		}
 		else if (MsgID == NETMSGTYPE_CL_CALLVOTE)
@@ -810,13 +834,13 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 			if (str_comp_nocase(pMsg->m_Type, "option") == 0)
 			{
 				for (int i = 0; i < m_PlayerVotes[ClientID].size(); ++i)
+				{
+					if (str_comp_nocase(pMsg->m_Value, m_PlayerVotes[ClientID][i].m_aDescription) == 0)
 					{
-						if(str_comp_nocase(pMsg->m_Value, m_PlayerVotes[ClientID][i].m_aDescription) == 0)
-						{
-							str_format(aDesc, sizeof(aDesc), "%s", m_PlayerVotes[ClientID][i].m_aDescription);
-							str_format(aCmd, sizeof(aCmd), "%s", m_PlayerVotes[ClientID][i].m_aCommand);
-						}
+						str_format(aDesc, sizeof(aDesc), "%s", m_PlayerVotes[ClientID][i].m_aDescription);
+						str_format(aCmd, sizeof(aCmd), "%s", m_PlayerVotes[ClientID][i].m_aCommand);
 					}
+				}
 			}
 			else if (str_comp_nocase(pMsg->m_Type, "kick") == 0)
 			{
@@ -852,6 +876,10 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 					SendChatTarget(ClientID, "You can't kick yourself");
 					return;
 				}
+
+				if (!Server()->ReverseTranslate(KickID, ClientID))
+					return;
+
 				if (Server()->IsAuthed(KickID))
 				{
 					SendChatTarget(ClientID, "You can't kick admins");
@@ -891,6 +919,9 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 					SendChatTarget(ClientID, "You can't move yourself");
 					return;
 				}
+
+				if (!Server()->ReverseTranslate(SpectateID, ClientID))
+					return;
 
 				str_format(aChatmsg, sizeof(aChatmsg), "'%s' called for vote to move '%s' to spectators (%s)", Server()->ClientName(ClientID), Server()->ClientName(SpectateID), pReason);
 				str_format(aDesc, sizeof(aDesc), "move '%s' to spectators", Server()->ClientName(SpectateID));
@@ -973,8 +1004,14 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 		{
 			CNetMsg_Cl_SetSpectatorMode *pMsg = (CNetMsg_Cl_SetSpectatorMode *)pRawMsg;
 
-			if (pPlayer->GetTeam() != TEAM_SPECTATORS || pPlayer->m_SpectatorID == pMsg->m_SpectatorID || ClientID == pMsg->m_SpectatorID ||
-				(g_Config.m_SvSpamprotection && pPlayer->m_LastSetSpectatorMode && pPlayer->m_LastSetSpectatorMode + Server()->TickSpeed() * 3 > Server()->Tick()))
+			if (g_Config.m_SvSpamprotection && pPlayer->m_LastSetSpectatorMode && pPlayer->m_LastSetSpectatorMode + Server()->TickSpeed() * 3 > Server()->Tick())
+				return;
+
+			if (pMsg->m_SpectatorID != SPEC_FREEVIEW)
+				if (!Server()->ReverseTranslate(pMsg->m_SpectatorID, ClientID))
+					return;
+
+			if (pPlayer->GetTeam() != TEAM_SPECTATORS || pPlayer->m_SpectatorID == pMsg->m_SpectatorID || ClientID == pMsg->m_SpectatorID)
 				return;
 
 			pPlayer->m_LastSetSpectatorMode = Server()->Tick();
@@ -1734,9 +1771,8 @@ void CGameContext::ConLogin(IConsole::IResult *pResult, void *pUserData)
 	Data.m_ClientID = pResult->GetClientID();
 	str_copy(Data.m_Username, pResult->GetString(0), sizeof(Data.m_Username));
 	str_copy(Data.m_Password, pResult->GetString(1), sizeof(Data.m_Password));
-	
+
 	pSelf->Sql()->Login(Data);
-	pSelf->ClearVotes(pResult->GetClientID());
 }
 #endif
 
@@ -1829,6 +1865,9 @@ void CGameContext::OnInit(/*class IKernel *pKernel*/)
 	m_pConsole = Kernel()->RequestInterface<IConsole>();
 	m_World.SetGameServer(this);
 	m_Events.SetGameServer(this);
+
+	m_Sql->LoadItem();
+	m_Sql->LoadZongMen();
 
 	// if(!data) // only load once
 	// data = load_data_from_memory(internal_data);
@@ -1980,6 +2019,11 @@ void CGameContext::Apply(int ClientID)
 	SAccData Data = m_apPlayers[ClientID]->m_AccData;
 	Apply(ClientID, DataList.GetDataName(AccDataList::ACCDATA_XIUWEI), std::to_string(Data.m_Xiuwei).c_str());
 	Apply(ClientID, DataList.GetDataName(AccDataList::ACCDATA_PO), std::to_string(Data.m_Po).c_str());
+	Apply(ClientID, DataList.GetDataName(AccDataList::ACCDATA_TIZHI), std::to_string(Data.m_Tizhi).c_str());
+	char aYuanSu[256];
+	str_format(aYuanSu, sizeof(aYuanSu), "%d|%d|%d|%d|%d", Data.m_YuanSu[0], Data.m_YuanSu[1], Data.m_YuanSu[2], Data.m_YuanSu[3], Data.m_YuanSu[4]);
+	Apply(ClientID, DataList.GetDataName(AccDataList::ACCDATA_YUANSU), aYuanSu);
+	Apply(ClientID, DataList.GetDataName(AccDataList::ACCDATA_ZONGMEN), std::to_string(Data.m_ZongMen).c_str());
 }
 
 void CGameContext::Apply(int ClientID, const char NeedyUpdate[256], const char Value[256])
@@ -2039,11 +2083,14 @@ void CGameContext::InitVotes(int ClientID)
 	if (!m_apPlayers[ClientID])
 		return;
 
+	dbg_msg("h", "%s", m_aZongMenData[m_apPlayers[ClientID]->m_AccData.m_ZongMen - 1].m_Name);
 	SAccData Data = m_apPlayers[ClientID]->m_AccData;
 	AddVote_VL(ClientID, "skip", _("==== ⚠诡异界修士面板⚠ ="));
 	AddVote_VL(ClientID, "skip", _("肉体辨识标识: {int:UID}"), "UID", &m_apPlayers[ClientID]->m_AccData.m_UserID);
+	AddVote_VL(ClientID, "skip", _("宗门: {str:ZongMen}"), "ZongMen", m_aZongMenData[Data.m_ZongMen - 1].m_Name);
 	AddVote_VL(ClientID, "skip", _("修为: {int:Xiuwei}"), "Xiuwei", &Data.m_Xiuwei);
 	AddVote_VL(ClientID, "skip", _("魄: {int:Po}"), "Po", &Data.m_Po);
+	AddVote_VL(ClientID, "skip", _(" "));
 	AddVote_VL(ClientID, "skip", _(" "));
 	AddVote_VL(ClientID, "skip", _("=-= 灵根属性权重 =-= (置闰五行后归0)"));
 	AddVote_VL(ClientID, "skip", _("- 金元素: {int:YuanSu}"), "YuanSu", &Data.m_YuanSu[0]);
@@ -2051,22 +2098,35 @@ void CGameContext::InitVotes(int ClientID)
 	AddVote_VL(ClientID, "skip", _("- 水元素: {int:YuanSu}"), "YuanSu", &Data.m_YuanSu[2]);
 	AddVote_VL(ClientID, "skip", _("- 火元素: {int:YuanSu}"), "YuanSu", &Data.m_YuanSu[3]);
 	AddVote_VL(ClientID, "skip", _("- 土元素: {int:YuanSu}"), "YuanSu", &Data.m_YuanSu[4]);
-	AddVote_VL(ClientID, "skip", _("-=- 灵根属性权重 -=-"));
+	AddVote_VL(ClientID, "skip", _(" "));
 	AddVote_VL(ClientID, "skip", _(" "));
 	AddVote_VL(ClientID, "skip", _("== = - - 体质 - - = =="));
 	for (int i = 1; i <= NUM_TIZHI; i++)
 	{
 		if (Data.m_Tizhi == 0)
 		{
-			AddVote_VL(ClientID, "skip", _("=--= - 您是个废物，哈哈"));
+			AddVote_VL(ClientID, "skip", _("=--= - 曾是凡人，如今凡体，即：平凡人"));
 			break;
 		}
-		if (Data.m_Tizhi&i)
+		if (Data.m_Tizhi & i)
 			AddVote_VL(ClientID, "skip", _("=-- {str:Tizhi}"), "Tizhi", GetTizhiName(i));
 	}
-	AddVote_VL(ClientID, "skip", _("=- === - 体质 - === -="));
+	AddVote_VL(ClientID, "skip", _(" "));
 	AddVote_VL(ClientID, "skip", _(" "));
 	AddVote_VL(ClientID, "skip", _("-=== - = 物品列表 = - ===-"));
+	for (int i = 0; i < NUM_ITEMTYPE; i++)
+	{
+		SItemData_Function sidf;
+		AddVote_VL(ClientID, "skip", _("-- {str:name} --"), "name", sidf.GetItemTypeName(i));
+		for (int j = 0; j < NUM_ITEMDATA; j++)
+		{
+			if (sidf.GetItemType(j) == i)
+			{
+				if (Data.m_ItemData[j].m_Num > 0)
+					AddVote_VL(ClientID, "skip", _("{str:IName} x{int:Num}"), "IName", m_aItemDataList[j].m_Name, "Num", &Data.m_ItemData[j].m_Num);
+			}
+		}
+	}
 }
 
 void CGameContext::ClearVotes(int ClientID)
@@ -2078,4 +2138,17 @@ void CGameContext::ClearVotes(int ClientID)
 	Server()->SendPackMsg(&ClearMsg, MSGFLAG_VITAL, ClientID);
 
 	InitVotes(ClientID);
+}
+
+void CGameContext::AddZombie(const char *Name)
+{
+	Server()->AddZombie(Name);
+}
+
+bool CGameContext::AIInputUpdateNeeded(int ClientID)
+{
+	if (m_apPlayers[ClientID])
+		return m_apPlayers[ClientID]->AIInputChanged();
+
+	return false;
 }

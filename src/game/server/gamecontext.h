@@ -26,6 +26,15 @@
 #include "db_mysql.h"
 #endif
 
+#ifdef _MSC_VER
+typedef __int32 int32_t;
+typedef unsigned __int32 uint32_t;
+typedef __int64 int64_t;
+typedef unsigned __int64 uint64_t;
+#else
+#include <stdint.h>
+#endif
+
 /*
 	Tick
 		Game Context (CGameContext::tick)
@@ -109,9 +118,8 @@ public:
 	CSQL *Sql() const { return m_Sql; };
 	#endif
 
-	std::vector<SItemDataList> m_vItemDataList;
-
-
+	SItemDataList m_aItemDataList[NUM_ITEMDATA];
+	SZongMenData m_aZongMenData[NUM_ZONGMEN];
 	CGameContext();
 	~CGameContext();
 
@@ -155,12 +163,12 @@ public:
 	CVoteOptionServer *m_pVoteOptionLast;
 
 	// helper functions
-	void CreateDamageInd(vec2 Pos, float AngleMod, int Amount);
-	void CreateExplosion(vec2 Pos, int Owner, int Weapon, bool NoDamage);
-	void CreateHammerHit(vec2 Pos);
-	void CreatePlayerSpawn(vec2 Pos);
-	void CreateDeath(vec2 Pos, int Who);
-	void CreateSound(vec2 Pos, int Sound, int Mask=-1);
+	void CreateDamageInd(vec2 Pos, float AngleMod, int Amount, int64_t Mask = -1LL);
+	void CreateExplosion(vec2 Pos, int Owner, int Weapon, bool NoDamage, int64_t Mask = -1LL);
+	void CreateHammerHit(vec2 Pos, int64_t Mask = -1LL);
+	void CreatePlayerSpawn(vec2 Pos, int64_t Mask = -1LL);
+	void CreateDeath(vec2 Pos, int Who, int64_t Mask = -1LL);
+	void CreateSound(vec2 Pos, int Sound, int64_t Mask=-1);
 	void CreateSoundGlobal(int Sound, int Target=-1);
 
 
@@ -212,7 +220,7 @@ public:
 
 	virtual void OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID);
 
-	virtual void OnClientConnected(int ClientID);
+	virtual void OnClientConnected(int ClientID, bool AI = false);
 	virtual void OnClientEnter(int ClientID);
 	virtual void OnClientDrop(int ClientID, const char *pReason);
 	virtual void OnClientDirectInput(int ClientID, void *pInput);
@@ -226,6 +234,11 @@ public:
 	virtual const char *GameType();
 	virtual const char *Version();
 	virtual const char *NetVersion();
+	
+	virtual void AddZombie(const char *Name);
+	virtual bool AIInputUpdateNeeded(int ClientID);
+	virtual void AIUpdateInput(int ClientID, int *Data);
+	void UpdateAI();
 	
 	#ifdef CONF_SQLITE
 	// - SQLite
@@ -242,8 +255,7 @@ public:
 	void Apply(int ClientID, const char NeedyUpdate[256], const char Value[256]); // Apply account
 #endif
 
-public:
-	static void VData_PrintVote(int CID, const char cmd[256]);
+	bool IsBot(int ClientID);
 };
 
 #ifdef CONF_SQLITE
@@ -279,9 +291,9 @@ public:
 
 #endif
 
-inline int64 CmaskAll() { return -1; }
-inline int64 CmaskOne(int ClientID) { return (int64)1<<ClientID; }
-inline int64 CmaskAllExceptOne(int ClientID) { return CmaskAll()^CmaskOne(ClientID); }
-inline bool CmaskIsSet(int64 Mask, int ClientID) { return (Mask&CmaskOne(ClientID)) != 0; }
+inline int64_t CmaskAll() { return -1LL; }
+inline int64_t CmaskOne(int ClientID) { return 1LL<<ClientID; }
+inline int64_t CmaskAllExceptOne(int ClientID) { return CmaskAll()^CmaskOne(ClientID); }
+inline bool CmaskIsSet(int64_t Mask, int ClientID) { return (Mask&CmaskOne(ClientID)) != 0; }
 
 #endif

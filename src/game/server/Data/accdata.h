@@ -20,7 +20,8 @@ struct SAccData
 
 	int m_YuanSu[s_YuansuNum]; // 元素 保存形式csv
 
-	std::vector<SItemData> m_vItemData;
+	int m_ZongMen; // 宗门
+	SItemData m_ItemData[NUM_ITEMDATA];
 };
 
 struct AccDataList
@@ -28,16 +29,18 @@ struct AccDataList
 	enum
 	{
 		ACCDATA_CLIENTID = -1, // 不收录进数据库
-		ACCDATA_USERID, // 用户ID
+		ACCDATA_USERID,		   // 用户ID
 
 		ACCDATA_USERNAME, // 用户名
 		ACCDATA_PASSWORD, // 密码
 
 		ACCDATA_XIUWEI, // 修为
-		ACCDATA_PO, // 魄
-		ACCDATA_TIZHI, // 体质
+		ACCDATA_PO,		// 魄
+		ACCDATA_TIZHI,	// 体质
 
 		ACCDATA_YUANSU, // 元素
+
+		ACCDATA_ZONGMEN, // 宗门
 
 		NUM_ACCDATA, // 数量
 	};
@@ -46,13 +49,22 @@ struct AccDataList
 	{
 		switch (ID)
 		{
-		case ACCDATA_USERID:	return "UserID";
-		case ACCDATA_USERNAME:  return "Username";
-		case ACCDATA_PASSWORD:  return "Password";
-		case ACCDATA_XIUWEI:    return "Xiuwei";
-		case ACCDATA_PO:        return "Po";
-		case ACCDATA_TIZHI:     return "Tizhi";
-		case ACCDATA_YUANSU:    return "Yuansu";
+		case ACCDATA_USERID:
+			return "UserID";
+		case ACCDATA_USERNAME:
+			return "Username";
+		case ACCDATA_PASSWORD:
+			return "Password";
+		case ACCDATA_XIUWEI:
+			return "Xiuwei";
+		case ACCDATA_PO:
+			return "Po";
+		case ACCDATA_TIZHI:
+			return "Tizhi";
+		case ACCDATA_YUANSU:
+			return "Yuansu";
+		case ACCDATA_ZONGMEN:
+			return "ZongMen";
 		}
 	}
 
@@ -62,11 +74,12 @@ struct AccDataList
 		{
 		case ACCDATA_USERID:
 		case ACCDATA_XIUWEI:
-		case ACCDATA_PO:    
-		case ACCDATA_TIZHI: 
+		case ACCDATA_PO:
+		case ACCDATA_TIZHI:
 		case ACCDATA_YUANSU:
+		case ACCDATA_ZONGMEN:
 			return "tw_Accounts";
-		
+
 		default:
 			break;
 		}

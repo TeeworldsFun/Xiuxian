@@ -5,6 +5,7 @@
 #include "entity.h"
 #include "gamecontext.h"
 #include <algorithm>
+#include <utility>
 #include <engine/shared/config.h>
 //////////////////////////////////////////////////
 // game world
@@ -16,15 +17,15 @@ CGameWorld::CGameWorld()
 
 	m_Paused = false;
 	m_ResetRequested = false;
-	for(int i = 0; i < NUM_ENTTYPES; i++)
+	for (int i = 0; i < NUM_ENTTYPES; i++)
 		m_apFirstEntityTypes[i] = 0;
 }
 
 CGameWorld::~CGameWorld()
 {
 	// delete all entities
-	for(int i = 0; i < NUM_ENTTYPES; i++)
-		while(m_apFirstEntityTypes[i])
+	for (int i = 0; i < NUM_ENTTYPES; i++)
+		while (m_apFirstEntityTypes[i])
 			delete m_apFirstEntityTypes[i];
 }
 
@@ -41,18 +42,18 @@ CEntity *CGameWorld::FindFirst(int Type)
 
 int CGameWorld::FindEntities(vec2 Pos, float Radius, CEntity **ppEnts, int Max, int Type)
 {
-	if(Type < 0 || Type >= NUM_ENTTYPES)
+	if (Type < 0 || Type >= NUM_ENTTYPES)
 		return 0;
 
 	int Num = 0;
-	for(CEntity *pEnt = m_apFirstEntityTypes[Type];	pEnt; pEnt = pEnt->m_pNextTypeEntity)
+	for (CEntity *pEnt = m_apFirstEntityTypes[Type]; pEnt; pEnt = pEnt->m_pNextTypeEntity)
 	{
-		if(distance(pEnt->m_Pos, Pos) < Radius+pEnt->m_ProximityRadius)
+		if (distance(pEnt->m_Pos, Pos) < Radius + pEnt->m_ProximityRadius)
 		{
-			if(ppEnts)
+			if (ppEnts)
 				ppEnts[Num] = pEnt;
 			Num++;
-			if(Num == Max)
+			if (Num == Max)
 				break;
 		}
 	}
@@ -63,12 +64,12 @@ int CGameWorld::FindEntities(vec2 Pos, float Radius, CEntity **ppEnts, int Max, 
 void CGameWorld::InsertEntity(CEntity *pEnt)
 {
 #ifdef CONF_DEBUG
-	for(CEntity *pCur = m_apFirstEntityTypes[pEnt->m_ObjType]; pCur; pCur = pCur->m_pNextTypeEntity)
+	for (CEntity *pCur = m_apFirstEntityTypes[pEnt->m_ObjType]; pCur; pCur = pCur->m_pNextTypeEntity)
 		dbg_assert(pCur != pEnt, "err");
 #endif
 
 	// insert it
-	if(m_apFirstEntityTypes[pEnt->m_ObjType])
+	if (m_apFirstEntityTypes[pEnt->m_ObjType])
 		m_apFirstEntityTypes[pEnt->m_ObjType]->m_pPrevTypeEntity = pEnt;
 	pEnt->m_pNextTypeEntity = m_apFirstEntityTypes[pEnt->m_ObjType];
 	pEnt->m_pPrevTypeEntity = 0x0;
@@ -83,19 +84,19 @@ void CGameWorld::DestroyEntity(CEntity *pEnt)
 void CGameWorld::RemoveEntity(CEntity *pEnt)
 {
 	// not in the list
-	if(!pEnt->m_pNextTypeEntity && !pEnt->m_pPrevTypeEntity && m_apFirstEntityTypes[pEnt->m_ObjType] != pEnt)
+	if (!pEnt->m_pNextTypeEntity && !pEnt->m_pPrevTypeEntity && m_apFirstEntityTypes[pEnt->m_ObjType] != pEnt)
 		return;
 
 	// remove
-	if(pEnt->m_pPrevTypeEntity)
+	if (pEnt->m_pPrevTypeEntity)
 		pEnt->m_pPrevTypeEntity->m_pNextTypeEntity = pEnt->m_pNextTypeEntity;
 	else
 		m_apFirstEntityTypes[pEnt->m_ObjType] = pEnt->m_pNextTypeEntity;
-	if(pEnt->m_pNextTypeEntity)
+	if (pEnt->m_pNextTypeEntity)
 		pEnt->m_pNextTypeEntity->m_pPrevTypeEntity = pEnt->m_pPrevTypeEntity;
 
 	// keep list traversing valid
-	if(m_pNextTraverseEntity == pEnt)
+	if (m_pNextTraverseEntity == pEnt)
 		m_pNextTraverseEntity = pEnt->m_pNextTypeEntity;
 
 	pEnt->m_pNextTypeEntity = 0;
@@ -105,8 +106,8 @@ void CGameWorld::RemoveEntity(CEntity *pEnt)
 //
 void CGameWorld::Snap(int SnappingClient)
 {
-	for(int i = 0; i < NUM_ENTTYPES; i++)
-		for(CEntity *pEnt = m_apFirstEntityTypes[i]; pEnt; )
+	for (int i = 0; i < NUM_ENTTYPES; i++)
+		for (CEntity *pEnt = m_apFirstEntityTypes[i]; pEnt;)
 		{
 			m_pNextTraverseEntity = pEnt->m_pNextTypeEntity;
 			pEnt->Snap(SnappingClient);
@@ -117,8 +118,8 @@ void CGameWorld::Snap(int SnappingClient)
 void CGameWorld::Reset()
 {
 	// reset all entities
-	for(int i = 0; i < NUM_ENTTYPES; i++)
-		for(CEntity *pEnt = m_apFirstEntityTypes[i]; pEnt; )
+	for (int i = 0; i < NUM_ENTTYPES; i++)
+		for (CEntity *pEnt = m_apFirstEntityTypes[i]; pEnt;)
 		{
 			m_pNextTraverseEntity = pEnt->m_pNextTypeEntity;
 			pEnt->Reset();
@@ -135,11 +136,11 @@ void CGameWorld::Reset()
 void CGameWorld::RemoveEntities()
 {
 	// destroy objects marked for destruction
-	for(int i = 0; i < NUM_ENTTYPES; i++)
-		for(CEntity *pEnt = m_apFirstEntityTypes[i]; pEnt; )
+	for (int i = 0; i < NUM_ENTTYPES; i++)
+		for (CEntity *pEnt = m_apFirstEntityTypes[i]; pEnt;)
 		{
 			m_pNextTraverseEntity = pEnt->m_pNextTypeEntity;
-			if(pEnt->m_MarkedForDestroy)
+			if (pEnt->m_MarkedForDestroy)
 			{
 				RemoveEntity(pEnt);
 				pEnt->Destroy();
@@ -150,24 +151,24 @@ void CGameWorld::RemoveEntities()
 
 void CGameWorld::Tick()
 {
-	if(m_ResetRequested)
+	if (m_ResetRequested)
 		Reset();
 
-	if(!m_Paused)
+	if (!m_Paused)
 	{
-		if(GameServer()->m_pController->IsForceBalanced())
+		if (GameServer()->m_pController->IsForceBalanced())
 			GameServer()->SendChat(-1, CGameContext::CHAT_ALL, "Teams have been balanced");
 		// update all objects
-		for(int i = 0; i < NUM_ENTTYPES; i++)
-			for(CEntity *pEnt = m_apFirstEntityTypes[i]; pEnt; )
+		for (int i = 0; i < NUM_ENTTYPES; i++)
+			for (CEntity *pEnt = m_apFirstEntityTypes[i]; pEnt;)
 			{
 				m_pNextTraverseEntity = pEnt->m_pNextTypeEntity;
 				pEnt->Tick();
 				pEnt = m_pNextTraverseEntity;
 			}
 
-		for(int i = 0; i < NUM_ENTTYPES; i++)
-			for(CEntity *pEnt = m_apFirstEntityTypes[i]; pEnt; )
+		for (int i = 0; i < NUM_ENTTYPES; i++)
+			for (CEntity *pEnt = m_apFirstEntityTypes[i]; pEnt;)
 			{
 				m_pNextTraverseEntity = pEnt->m_pNextTypeEntity;
 				pEnt->TickDefered();
@@ -177,8 +178,8 @@ void CGameWorld::Tick()
 	else
 	{
 		// update all objects
-		for(int i = 0; i < NUM_ENTTYPES; i++)
-			for(CEntity *pEnt = m_apFirstEntityTypes[i]; pEnt; )
+		for (int i = 0; i < NUM_ENTTYPES; i++)
+			for (CEntity *pEnt = m_apFirstEntityTypes[i]; pEnt;)
 			{
 				m_pNextTraverseEntity = pEnt->m_pNextTypeEntity;
 				pEnt->TickPaused();
@@ -191,26 +192,25 @@ void CGameWorld::Tick()
 	UpdatePlayerMaps();
 }
 
-
 // TODO: should be more general
-CCharacter *CGameWorld::IntersectCharacter(vec2 Pos0, vec2 Pos1, float Radius, vec2& NewPos, CEntity *pNotThis)
+CCharacter *CGameWorld::IntersectCharacter(vec2 Pos0, vec2 Pos1, float Radius, vec2 &NewPos, CEntity *pNotThis)
 {
 	// Find other players
 	float ClosestLen = distance(Pos0, Pos1) * 100.0f;
 	CCharacter *pClosest = 0;
 
 	CCharacter *p = (CCharacter *)FindFirst(ENTTYPE_CHARACTER);
-	for(; p; p = (CCharacter *)p->TypeNext())
- 	{
-		if(p == pNotThis)
+	for (; p; p = (CCharacter *)p->TypeNext())
+	{
+		if (p == pNotThis)
 			continue;
 
 		vec2 IntersectPos = closest_point_on_line(Pos0, Pos1, p->m_Pos);
 		float Len = distance(p->m_Pos, IntersectPos);
-		if(Len < p->m_ProximityRadius+Radius)
+		if (Len < p->m_ProximityRadius + Radius)
 		{
 			Len = distance(Pos0, IntersectPos);
-			if(Len < ClosestLen)
+			if (Len < ClosestLen)
 			{
 				NewPos = IntersectPos;
 				ClosestLen = Len;
@@ -222,23 +222,22 @@ CCharacter *CGameWorld::IntersectCharacter(vec2 Pos0, vec2 Pos1, float Radius, v
 	return pClosest;
 }
 
-
 CCharacter *CGameWorld::ClosestCharacter(vec2 Pos, float Radius, CEntity *pNotThis)
 {
 	// Find other players
-	float ClosestRange = Radius*2;
+	float ClosestRange = Radius * 2;
 	CCharacter *pClosest = 0;
 
 	CCharacter *p = (CCharacter *)GameServer()->m_World.FindFirst(ENTTYPE_CHARACTER);
-	for(; p; p = (CCharacter *)p->TypeNext())
- 	{
-		if(p == pNotThis)
+	for (; p; p = (CCharacter *)p->TypeNext())
+	{
+		if (p == pNotThis)
 			continue;
 
 		float Len = distance(Pos, p->m_Pos);
-		if(Len < p->m_ProximityRadius+Radius)
+		if (Len < p->m_ProximityRadius + Radius)
 		{
-			if(Len < ClosestRange)
+			if (Len < ClosestRange)
 			{
 				ClosestRange = Len;
 				pClosest = p;
@@ -256,80 +255,83 @@ bool distCompare(std::pair<float, int> a, std::pair<float, int> b)
 
 void CGameWorld::UpdatePlayerMaps()
 {
-	if(Server()->Tick() % g_Config.m_SvMapUpdateRate != 0)
+	if (Server()->Tick() % g_Config.m_SvMapUpdateRate != 0)
 		return;
 
-	std::pair<float, int> Dist[MAX_CLIENTS];
-	for(int i = 0; i < MAX_PLAYERS; i++)
+	std::pair<float, int> dist[MAX_CLIENTS];
+	for (int i = 0; i < MAX_CLIENTS; i++)
 	{
-		if(!Server()->ClientIngame(i))
+		if (!Server()->ClientIngame(i))
 			continue;
-
-		int* pMap = Server()->GetIdMap(i);
+		int *map = Server()->GetIdMap(i);
 
 		// compute distances
-		for(int j = MAX_PLAYERS; j < MAX_CLIENTS; j++)
+		for (int j = 0; j < MAX_CLIENTS; j++)
 		{
-			Dist[j].second = j;
-			if(!Server()->ClientIngame(j) || !GameServer()->m_apPlayers[j])
-			{
-				Dist[j].first = 1e10;
+			dist[j].second = j;
+			dist[j].first = 1e10;
+			if (!Server()->ClientIngame(j))
 				continue;
-			}
-
-			CCharacter* pChr = GameServer()->m_apPlayers[j]->GetCharacter();
-			if(!pChr)
-			{
-				Dist[j].first = 1e9;
+			/*CCharacter* ch = GameServer()->m_apPlayers[j]->GetCharacter();
+			if (!ch)
 				continue;
-			}
+			// copypasted chunk from character.cpp Snap() follows
+			int SnappingClient = i;
+			CCharacter* SnapChar = GameServer()->GetPlayerChar(SnappingClient);
+			if(SnapChar &&
+				GameServer()->m_apPlayers[SnappingClient]->GetTeam() != -1 &&
+				!ch->CanCollide(SnappingClient) &&
+				(!GameServer()->m_apPlayers[SnappingClient]->m_IsUsingDDRaceClient ||
+					(GameServer()->m_apPlayers[SnappingClient]->m_IsUsingDDRaceClient &&
+					!GameServer()->m_apPlayers[SnappingClient]->m_ShowOthers
+									)
+				)
+						) continue;*/
 
-			Dist[j].first = 1e8;
-			Dist[j].first += distance(GameServer()->m_apPlayers[i]->m_ViewPos, GameServer()->m_apPlayers[j]->GetCharacter()->m_Pos);
+			dist[j].first = distance(GameServer()->m_apPlayers[i]->m_ViewPos, GameServer()->m_apPlayers[j]->m_ViewPos);
 		}
 
-		// always send the player themselves
-		Dist[i].first = 0;
+		// always send the player himself
+		dist[i].first = 0;
 
 		// compute reverse map
-		int aReverseMap[MAX_CLIENTS];
-		for(int& j : aReverseMap)
+		int rMap[MAX_CLIENTS];
+		for (int j = 0; j < MAX_CLIENTS; j++)
 		{
-			j = -1;
+			rMap[j] = -1;
 		}
-		for(int j = MAX_PLAYERS; j < VANILLA_MAX_CLIENTS; j++)
+		for (int j = 0; j < VANILLA_MAX_CLIENTS; j++)
 		{
-			if(pMap[j] == -1)
+			if (map[j] == -1)
 				continue;
-			if(Dist[pMap[j]].first > 5e9f)
-				pMap[j] = -1;
+			if (dist[map[j]].first > 1e9)
+				map[j] = -1;
 			else
-				aReverseMap[pMap[j]] = j;
+				rMap[map[j]] = j;
 		}
 
-		std::nth_element(&Dist[0], &Dist[VANILLA_MAX_CLIENTS - 1], &Dist[MAX_CLIENTS], distCompare);
+		std::nth_element(&dist[0], &dist[VANILLA_MAX_CLIENTS - 1], &dist[MAX_CLIENTS], distCompare);
 
-		int Mapc = 0;
-		int Demand = 0;
-		for(int j = MAX_PLAYERS; j < VANILLA_MAX_CLIENTS - 1; j++)
+		int mapc = 0;
+		int demand = 0;
+		for (int j = 0; j < VANILLA_MAX_CLIENTS - 1; j++)
 		{
-			int k = Dist[j].second;
-			if(aReverseMap[k] != -1 || Dist[j].first > 5e9f)
+			int k = dist[j].second;
+			if (rMap[k] != -1 || dist[j].first > 1e9)
 				continue;
-			while(Mapc < VANILLA_MAX_CLIENTS && pMap[Mapc] != -1)
-				Mapc++;
-			if(Mapc < VANILLA_MAX_CLIENTS - 1)
-				pMap[Mapc] = k;
-			else
-				Demand++;
+			while (mapc < VANILLA_MAX_CLIENTS && map[mapc] != -1)
+				mapc++;
+			if (mapc < VANILLA_MAX_CLIENTS - 1)
+				map[mapc] = k;
+			else if (dist[j].first < 1300) // dont bother freeing up space for players which are too far to be displayed anyway
+				demand++;
 		}
-		for(int j = MAX_CLIENTS - 1; j > VANILLA_MAX_CLIENTS - 2; j--)
+		for (int j = MAX_CLIENTS - 1; j > VANILLA_MAX_CLIENTS - 2; j--)
 		{
-			int k = Dist[j].second;
-			if(aReverseMap[k] != -1 && Demand-- > 0)
-				pMap[aReverseMap[k]] = -1;
+			int k = dist[j].second;
+			if (rMap[k] != -1 && demand-- > 0)
+				map[rMap[k]] = -1;
 		}
-
-		pMap[VANILLA_MAX_CLIENTS - 1] = -1; // player with empty name to say chat msgs
+		map[VANILLA_MAX_CLIENTS - 1] = -1; // player with empty name to say chat msgs
 	}
 }

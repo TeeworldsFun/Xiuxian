@@ -4,6 +4,7 @@
 #define GAME_COLLISION_H
 
 #include <base/vmath.h>
+#include "pathfinding.h"
 
 class CCollision
 {
@@ -12,10 +13,24 @@ class CCollision
 	int m_Height;
 	class CLayers *m_pLayers;
 
-	bool IsTileSolid(int x, int y);
 	int GetTile(int x, int y);
 
+	int m_WaypointCount;
+	int m_ConnectionCount;
+	
+	void ClearWaypoints();
+	void AddWaypoint(vec2 Position, bool InnerCorner = false);
+	CWaypoint *GetWaypointAt(int x, int y);
+	void ConnectWaypoints();
+	CWaypoint *GetClosestWaypoint(vec2 Pos);
+
+	CWaypoint *m_apWaypoint[MAX_WAYPOINTS];
+	CWaypoint *m_pCenterWaypoint;
+	
+	CWaypointPath *m_pPath;
+
 public:
+	bool IsTileSolid(int x, int y);
 	enum
 	{
 		COLFLAG_SOLID=1,
@@ -34,6 +49,27 @@ public:
 	void MovePoint(vec2 *pInoutPos, vec2 *pInoutVel, float Elasticity, int *pBounces);
 	void MoveBox(vec2 *pInoutPos, vec2 *pInoutVel, vec2 Size, float Elasticity);
 	bool TestBox(vec2 Pos, vec2 Size);
+
+	void GenerateWaypoints();
+	bool GenerateSomeMoreWaypoints();
+	int WaypointCount() { return m_WaypointCount; }
+	int ConnectionCount() { return m_ConnectionCount; }
+	
+	void SetWaypointCenter(vec2 Position);
+	void AddWeight(vec2 Pos, int Weight);
+	bool FindWaypointPath(vec2 TargetPos);
+	
+	//CWaypointPath *AStar(vec2 Start, vec2 End);
+	bool AStar(vec2 Start, vec2 End);
+	
+	CWaypointPath *GetPath(){ return m_pPath; }
+	void ForgetAboutThePath(){ m_pPath = 0; }
+		
+
+	// for testing
+	vec2 m_aPath[99];
+
+	int FastIntersectLine(vec2 Pos0, vec2 Pos1);
 };
 
 #endif

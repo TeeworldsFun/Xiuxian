@@ -5,6 +5,15 @@
 
 #include <base/vmath.h>
 
+#ifdef _MSC_VER
+typedef __int32 int32_t;
+typedef unsigned __int32 uint32_t;
+typedef __int64 int64_t;
+typedef unsigned __int64 uint64_t;
+#else
+#include <stdint.h>
+#endif
+
 /*
 	Class: Game Controller
 		Controls the main game logic. Keeping track of team and player score,
@@ -113,7 +122,7 @@ public:
 		Arguments:
 			chr - The CCharacter that was spawned.
 	*/
-	virtual void OnCharacterSpawn(class CCharacter *pChr);
+	virtual void OnCharacterSpawn(class CCharacter *pChr, bool RequestAI);
 
 	/*
 		Function: on_CCharacter_death

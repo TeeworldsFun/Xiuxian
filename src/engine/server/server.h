@@ -106,6 +106,8 @@ public:
 		int m_Latency;
 		int m_SnapRate;
 
+		bool m_Bot;
+
 		int m_LastAckedSnapshot;
 		int m_LastInputTick;
 		CSnapshotStorage m_Snapshots;
@@ -126,10 +128,13 @@ public:
 		void Reset();
 
 		char m_aLanguage[16];
+
+		NETADDR m_Addr;
+		bool m_CustClt;
 	};
 
 	CClient m_aClients[MAX_CLIENTS];
-	int m_aIdMap[MAX_CLIENTS * VANILLA_MAX_CLIENTS];
+	int IdMap[MAX_CLIENTS * VANILLA_MAX_CLIENTS];
 
 	CSnapshotDelta m_SnapshotDelta;
 	CSnapshotBuilder m_SnapshotBuilder;
@@ -162,9 +167,9 @@ public:
 
 	CServer();
 
-	int TrySetClientName(int ClientID, const char *pName);
+	int TrySetClientName(int ClientID, const char *pName, bool Bot = false);
 
-	virtual void SetClientName(int ClientID, const char *pName);
+	virtual void SetClientName(int ClientID, const char *pName, bool Bot = false);
 	virtual void SetClientClan(int ClientID, char const *pClan);
 	virtual void SetClientCountry(int ClientID, int Country);
 	virtual void SetClientScore(int ClientID, int Score);
@@ -209,10 +214,11 @@ public:
 
 	void ProcessClientPacket(CNetChunk *pPacket);
 
-	void SendServerInfo(const NETADDR *pAddr, int Token);
+	void SendServerInfo(const NETADDR *pAddr, int Token, bool Extended=false, int Offset=0);
 	void UpdateServerInfo();
 
 	void PumpNetwork();
+	void UpdateAIInput();
 
 	char *GetMapName();
 	int LoadMap(const char *pMapName);
@@ -244,7 +250,11 @@ public:
 	virtual const char* GetClientLanguage(int ClientID);
 	virtual void SetClientLanguage(int ClientID, const char* pLanguage);
 	
-	int* GetIdMap(int ClientID) override;
+	virtual int* GetIdMap(int ClientID);
+	virtual void SetCustClt(int ClientID);
+
+	virtual void AddZombie(const char *Name);
+	void KickBots();
 };
 
 #endif

@@ -137,3 +137,14 @@ void CPickup::Snap(int SnappingClient)
 	pP->m_Type = m_Type;
 	pP->m_Subtype = m_Subtype;
 }
+
+bool CPickup::IsWeapon()
+{
+	if (m_SpawnTick > 0)
+		return false;
+	
+	if (m_Type == POWERUP_WEAPON)
+		return true;
+	
+	return false;
+}

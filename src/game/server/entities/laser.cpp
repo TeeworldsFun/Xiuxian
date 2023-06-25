@@ -29,6 +29,9 @@ bool CLaser::HitCharacter(vec2 From, vec2 To)
 	m_From = From;
 	m_Pos = At;
 	m_Energy = -1;
+	int TCID = pHit->GetPlayer()->GetCID();
+	if(!Server()->Translate(TCID, m_Owner))
+		return false;
 	pHit->TakeDamage(vec2(0.f, 0.f), GameServer()->Tuning()->m_LaserDamage, m_Owner, WEAPON_RIFLE);
 	return true;
 }
@@ -98,6 +101,9 @@ void CLaser::TickPaused()
 
 void CLaser::Snap(int SnappingClient)
 {
+	if(!Server()->Translate(SnappingClient, m_Owner))
+		return;
+
 	if(NetworkClipped(SnappingClient))
 		return;
 
