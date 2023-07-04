@@ -21,14 +21,16 @@ public:
 	CAIXieSui(CGameContext *pGameServer, CPlayer *pPlayer, int Type);
 
 	virtual void DoBehavior();
+	virtual void Waking();
 	void OnCharacterSpawn(class CCharacter *pChr);
 
 	static void ThreadBotAction(void *pUser);
 
 	int m_HookTimer;
-
 private:
 	int m_SkipMoveUpdate;
+
+	std::thread m_ThreadBA;
 };
 
 #endif

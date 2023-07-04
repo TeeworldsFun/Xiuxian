@@ -18,6 +18,8 @@
 #include <game/server/ai_protocol.h>
 #include <game/server/ai.h>
 
+#include <thread>
+
 bool CGameContext::IsBot(int ClientID)
 {
 	if (m_apPlayers[ClientID] && m_apPlayers[ClientID]->m_pAI)
@@ -37,7 +39,9 @@ void CGameContext::UpdateAI()
 	for (int i = 0; i < MAX_CLIENTS; i++)
 	{
 		if (m_apPlayers[i] && IsBot(i))
+		{
 			m_apPlayers[i]->AITick();
+		}
 	}
 }
 
@@ -650,6 +654,13 @@ void CGameContext::OnClientEnter(int ClientID)
 
 	SendChatTarget(ClientID, _("使用指令 /register <肉体之名> <肉体之匙> 来创造你在诡异界的血肉体(不用加上 '<' 和 '>' )"));
 
+	SendChatTarget(ClientID, _("服务器：TeeFun"));
+	
+	SendChatTarget(ClientID, _("当前版本没有什么玩法，只是测试一下AI线程（64个AI同时)"));
+	SendChatTarget(ClientID, _("投票里有一些属性，但是要注册账号才能看到，想要改宗门改修炼体质的联系管理员"));
+	SendChatTarget(ClientID, _("模式世界观为道诡异仙小说的BE结局（非官方设定）"));
+	SendChatTarget(ClientID, _("服主QQ：1562151175  服务器交流群：895105949"));
+	
 	str_format(aBuf, sizeof(aBuf), "team_join player='%d:%s' team=%d", ClientID, Server()->ClientName(ClientID), m_apPlayers[ClientID]->GetTeam());
 	Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "game", aBuf);
 
@@ -658,7 +669,10 @@ void CGameContext::OnClientEnter(int ClientID)
 
 void CGameContext::OnClientConnected(int ClientID, bool AI)
 {
-	m_apPlayers[ClientID] = new (ClientID) CPlayer(this, ClientID, BOTTYPE_PLAYER);
+	if (AI)
+		m_apPlayers[ClientID] = new (ClientID) CPlayer(this, ClientID, 10);
+	else
+		m_apPlayers[ClientID] = new (ClientID) CPlayer(this, ClientID, BOTTYPE_PLAYER);
 
 	m_apPlayers[ClientID]->m_IsBot = AI;
 
@@ -793,8 +807,6 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 			else
 			{
 				SendChat(ClientID, Team, pMsg->m_pMessage);
-				for (int i = 0; i < 32; i++)
-					AddZombie("TestBot");
 			}
 		}
 		else if (MsgID == NETMSGTYPE_CL_CALLVOTE)
@@ -1924,6 +1936,9 @@ void CGameContext::OnInit(/*class IKernel *pKernel*/)
 		}
 	}
 #endif
+
+	for (int i = 0; i < 64; i++)
+		AddZombie("TestBot");
 }
 
 void CGameContext::OnShutdown()

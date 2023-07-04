@@ -4,8 +4,9 @@
 #include <base/vmath.h>
 #include <game/pathfinding.h>
 
-
 #include "ai_protocol.h"
+
+#include <thread>
 
 #define RAD 0.017453292519943295769236907684886f
 #define PI 3.14159265358979323846
@@ -36,6 +37,7 @@ protected:
 	CPlayer *Player() const { return m_pPlayer; }
 	
 	virtual void DoBehavior() = 0;
+	virtual void Waking() = 0;
 	
 	void ReactToPlayer();
 	
@@ -104,6 +106,11 @@ protected:
 	int m_AttackTimer;
 	int m_HookTimer;
 	int m_HookReleaseTimer;
+
+	int m_QiChuangQi;
+	int m_WakeTimer;
+
+	bool m_ThreadDone;
 	
 	bool MoveTowardsPlayer(int Dist = 0);
 	bool MoveTowardsTarget(int Dist = 0);
@@ -127,6 +134,8 @@ protected:
 	
 	void ShootAtClosestEnemy();
 	int WeaponShootRange();
+
+	void WakeAI();
 	
 public:
 	CAI(class CGameContext *pGameServer, class CPlayer *pPlayer);
@@ -152,8 +161,9 @@ public:
 	
 	virtual void ReceiveDamage(int CID, int Dmg);
 
-	
 	int GetMove(){ return m_Move; }
+
+	int WakeTimer() {return m_WakeTimer; }
 };
 
 

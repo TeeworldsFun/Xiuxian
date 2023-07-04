@@ -1885,8 +1885,22 @@ void CServer::AddZombie(const char *Name)
 	m_aClients[ClientID].m_State = CClient::STATE_INGAME;
 	m_aClients[ClientID].m_Bot = true;
 
-	SetClientName(ClientID, ZWD_XuLieNames[rand() % 27], true);
-	SetClientClan(ClientID, "ai");
+	switch(rand()%3)
+	{
+		case 0:
+			SetClientName(ClientID, ZWD_XuLieNames[rand() % 27], true);
+			break;
+		
+		case 1:
+			SetClientName(ClientID, ZWD_DaSanYuanNames[rand() % 3], true);
+			break;
+		
+		case 2:
+			SetClientName(ClientID, ZWD_TouZi, true);
+			break;
+	}
+
+	SetClientClan(ClientID, "坐忘道");
 }
 
 void CServer::KickBots()

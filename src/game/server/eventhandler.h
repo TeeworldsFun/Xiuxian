@@ -11,7 +11,6 @@ typedef unsigned __int64 uint64_t;
 #else
 #include <stdint.h>
 #endif
-
 //
 class CEventHandler
 {

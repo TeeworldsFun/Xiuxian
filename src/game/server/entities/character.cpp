@@ -694,33 +694,38 @@ bool CCharacter::IncreaseArmor(int Amount)
 
 void CCharacter::Die(int Killer, int Weapon)
 {
-	// we got to wait 0.5 secs before respawning
-	m_pPlayer->m_RespawnTick = Server()->Tick() + Server()->TickSpeed() / 2;
-	int ModeSpecial = GameServer()->m_pController->OnCharacterDeath(this, GameServer()->m_apPlayers[Killer], Weapon);
-
-	char aBuf[256];
-	str_format(aBuf, sizeof(aBuf), "kill killer='%d:%s' victim='%d:%s' weapon=%d special=%d",
-			   Killer, Server()->ClientName(Killer),
-			   m_pPlayer->GetCID(), Server()->ClientName(m_pPlayer->GetCID()), Weapon, ModeSpecial);
-	GameServer()->Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "game", aBuf);
-
-	// send the kill message
-	CNetMsg_Sv_KillMsg Msg;
-	Msg.m_Killer = Killer;
-	Msg.m_Victim = m_pPlayer->GetCID();
-	Msg.m_Weapon = Weapon;
-	Msg.m_ModeSpecial = ModeSpecial;
-	Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, -1);
-
-	// a nice sound
 	GameServer()->CreateSound(m_Pos, SOUND_PLAYER_DIE);
+	if (!m_IsBot) // 判断是AI还是玩家（是玩家）
+	{
+		// we got to wait 0.5 secs before respawning
+		m_pPlayer->m_RespawnTick = Server()->Tick() + Server()->TickSpeed() / 2;
+		int ModeSpecial = GameServer()->m_pController->OnCharacterDeath(this, GameServer()->m_apPlayers[Killer], Weapon);
 
-	// this is for auto respawn after 3 secs
-	m_pPlayer->m_DieTick = Server()->Tick();
+		char aBuf[256];
+		str_format(aBuf, sizeof(aBuf), "kill killer='%d:%s' victim='%d:%s' weapon=%d special=%d",
+				   Killer, Server()->ClientName(Killer),
+				   m_pPlayer->GetCID(), Server()->ClientName(m_pPlayer->GetCID()), Weapon, ModeSpecial);
+		GameServer()->Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "game", aBuf);
 
-	m_Alive = false;
-	GameServer()->m_World.RemoveEntity(this);
-	GameServer()->m_World.m_Core.m_apCharacters[m_pPlayer->GetCID()] = 0;
+		// send the kill message
+		CNetMsg_Sv_KillMsg Msg;
+		Msg.m_Killer = Killer;
+		Msg.m_Victim = m_pPlayer->GetCID();
+		Msg.m_Weapon = Weapon;
+		Msg.m_ModeSpecial = ModeSpecial;
+		Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, -1);
+
+		// this is for auto respawn after 3 secs
+		m_pPlayer->m_DieTick = Server()->Tick();
+
+		m_Alive = false;
+		GameServer()->m_World.RemoveEntity(this);
+		GameServer()->m_World.m_Core.m_apCharacters[m_pPlayer->GetCID()] = 0;
+	}
+	else // 如果这是个AI操控的Character，就执行这个
+	{
+		m_pPlayer->m_InSleep = true;
+	}
 	GameServer()->CreateDeath(m_Pos, m_pPlayer->GetCID());
 }
 
@@ -826,7 +831,7 @@ void CCharacter::Snap(int SnappingClient)
 {
 	int Id = m_pPlayer->GetCID();
 
-	if (!Server()->Translate(Id, SnappingClient))
+	if (!Server()->Translate(Id, SnappingClient) || GetPlayer()->m_InSleep)
 		return;
 
 	if (NetworkClipped(SnappingClient))
@@ -915,8 +920,9 @@ void CCharacter::SetEmoteFor(int Emote, int Ticks, int LockEmote, bool UseTime)
 
 void CCharacter::AutoWeaponChange()
 {
-	if(m_ActiveWeapon != WEAPON_HAMMER)
+	if (m_ActiveWeapon != WEAPON_HAMMER)
 		return;
+
 	if (frandom() * 100 > 10 && m_ActiveWeapon != WEAPON_HAMMER)
 		return;
 
@@ -930,4 +936,9 @@ void CCharacter::AutoWeaponChange()
 			SetWeapon(w);
 		}
 	}
+}
+
+void CCharacter::HandleAI()
+{
+	// 这个函数用来迷惑维护代码的后人（哈哈哈哈哈哈哈哈）
 }

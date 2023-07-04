@@ -13,6 +13,7 @@ CAIXieSui::CAIXieSui(CGameContext *pGameServer, CPlayer *pPlayer, int Type)
 	: CAI(pGameServer, pPlayer)
 {
 	m_SkipMoveUpdate = 0;
+	m_QiChuangQi = 100;
 	switch (Type)
 	{
 	case TYPE_L1:
@@ -59,6 +60,8 @@ void CAIXieSui::ThreadBotAction(void *pUser)
 {
 	CAIXieSui *pThis = (CAIXieSui *)pUser;
 
+	pThis->m_ThreadDone = false;
+
 	pThis->HeadToMovingDirection();
 
 	pThis->SeekClosestEnemyInSight();
@@ -98,10 +101,10 @@ void CAIXieSui::ThreadBotAction(void *pUser)
 			pThis->m_Jump = 1;
 	}
 
-	if(pThis->Player()->GetCharacter()->Hooking())
+	if (pThis->Player()->GetCharacter()->Hooking())
 		pThis->m_HookTimer++;
-	
-	if(pThis->m_HookTimer >= 10*50)
+
+	if (pThis->m_HookTimer >= 10 * 50)
 	{
 		pThis->m_HookTimer = 0;
 		pThis->m_Hook = 0;
@@ -110,6 +113,8 @@ void CAIXieSui::ThreadBotAction(void *pUser)
 	pThis->DoJumping();
 	pThis->Unstuck();
 	pThis->RandomlyStopShooting();
+
+	pThis->m_ThreadDone = true;
 }
 
 void CAIXieSui::DoBehavior()
@@ -118,14 +123,46 @@ void CAIXieSui::DoBehavior()
 	m_Jump = 0;
 	m_Attack = 0;
 
-	if(Player()->GetCharacter())
+	if (Player()->GetCharacter())
 		Player()->GetCharacter()->SetWeapon(WEAPON_HAMMER);
 
-	// std::thread thread = std::thread(&ThreadBotAction, this, Player()->GetCharacter());
-	// thread.detach();
-	
-	ThreadBotAction(this);
+	if (!Player()->m_InSleep)
+	{
+		m_ThreadBA = std::thread(&ThreadBotAction, this);
+		m_ThreadBA.detach();
+	}
+
+	// ThreadBotAction(this);
 	// next reaction in
-	m_ReactionTime = 2 * frandom();
+	m_ReactionTime = 0;
 	HookMove();
+}
+
+void CAIXieSui::Waking()
+{
+	switch (m_WakeTimer)
+	{
+	case 1:
+	case 30:
+	case 50:
+	case 60:
+		GameServer()->CreateExplosion(Player()->GetCharacter()->m_Pos, Player()->GetCID(), WEAPON_NINJA, true);
+		break;
+
+	case 70:
+	case 75:
+	case 80:
+	case 85:
+		GameServer()->CreateDeath(Player()->GetCharacter()->m_Pos, -1);
+		break;
+
+	case 99:
+		GameServer()->CreateHammerHit(Player()->GetCharacter()->m_Pos);
+		GameServer()->CreatePlayerSpawn(Player()->GetCharacter()->m_Pos);
+		GameServer()->CreateSound(Player()->GetCharacter()->m_Pos, SOUND_TEE_CRY);
+		break;
+
+	default:
+		break;
+	}
 }

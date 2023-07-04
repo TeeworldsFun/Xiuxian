@@ -112,6 +112,7 @@ public:
 
 	CAI *m_pAI;
 	bool m_IsBot;
+	int m_InSleep;
 	
 	void AITick();
 	bool AIInputChanged();

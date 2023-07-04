@@ -70,6 +70,8 @@ void CAI::Reset()
 
 	m_OldTargetPos = vec2(0, 0);
 	ClearEmotions();
+
+	m_ThreadDone = true;
 }
 
 void CAI::OnCharacterSpawn(class CCharacter *pChr)
@@ -888,6 +890,18 @@ bool CAI::SeekClosestEnemyInSight()
 
 void CAI::Tick()
 {
+	// 睡着的AI不能动
+	if(m_pPlayer->m_InSleep)
+	{
+		Reset();
+		Player()->GetCharacter()->GetCore().m_Vel = vec2(0, 0);
+		Waking();
+		m_WakeTimer++;
+		if(m_WakeTimer >= m_QiChuangQi)
+			WakeAI();
+
+		return;
+	}
 	m_NextReaction--;
 
 	// character check & position update
@@ -921,7 +935,8 @@ void CAI::Tick()
 	{
 		m_NextReaction = m_ReactionTime;
 
-		DoBehavior();
+		if(m_ThreadDone)
+			DoBehavior();
 
 		if (m_DontMoveTick > GameServer()->Server()->Tick())
 		{
@@ -953,4 +968,10 @@ void CAI::Tick()
 
 	m_DisplayDirection.x += (m_Direction.x - m_DisplayDirection.x) / 4.0f;
 	m_DisplayDirection.y += (m_Direction.y - m_DisplayDirection.y) / 4.0f;
+}
+
+void CAI::WakeAI()
+{
+	Player()->m_InSleep = false;
+	m_WakeTimer = 0;
 }
