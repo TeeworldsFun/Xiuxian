@@ -974,4 +974,5 @@ void CAI::WakeAI()
 {
 	Player()->m_InSleep = false;
 	m_WakeTimer = 0;
+	Player()->GetCharacter()->IncreaseHealth(10);
 }
