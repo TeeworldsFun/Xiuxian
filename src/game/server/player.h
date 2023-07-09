@@ -11,8 +11,6 @@
 #include "Data/itemdata.h"
 #include <vector>
 
-#include "ai.h"
-
 // player object
 class CPlayer
 {
@@ -25,8 +23,9 @@ public:
 	void TryRespawn();
 	void Respawn();
 	void SetTeam(int Team, bool DoChatMsg = true);
-	int GetTeam() const { return m_Team; };
+	int GetTeam() const { return m_RealTeam; };
 	int GetCID() const { return m_ClientID; };
+	void SetCID(int CID);
 
 	void Tick();
 	void PostTick();
@@ -110,13 +109,13 @@ public:
 
 	class CAccount *m_pAccount;
 
-	CAI *m_pAI;
+	// Bot flag
 	bool m_IsBot;
-	int m_InSleep;
+	class CBot *m_pBot;
 	
-	void AITick();
-	bool AIInputChanged();
+	bool IsBot() { return m_IsBot; }
 
+	int m_RealTeam;
 private:
 	CCharacter *m_pCharacter;
 	CGameContext *m_pGameServer;

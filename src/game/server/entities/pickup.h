@@ -19,6 +19,9 @@ public:
 
 	bool IsWeapon();
 
+	int GetType() { return m_Type; }
+	int GetSubType() { return m_Subtype; }
+	bool IsSpawned() { return m_SpawnTick == -1; }
 private:
 	int m_Type;
 	int m_Subtype;

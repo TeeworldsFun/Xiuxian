@@ -32,7 +32,6 @@ bool CNetServer::Open(NETADDR BindAddr, CNetBan *pNetBan, int MaxClients, int Ma
 	for(int i = 0; i < NET_MAX_CLIENTS; i++)
 	{
 		m_aSlots[i].m_Connection.Init(m_Socket, true);
-		m_SlotTakenByBot[i] = false;
 	}
 
 	return true;
@@ -66,8 +65,6 @@ int CNetServer::Drop(int ClientID, const char *pReason)
 		m_pfnDelClient(ClientID, pReason, m_UserPtr);
 
 	m_aSlots[ClientID].m_Connection.Disconnect(pReason);
-
-	m_SlotTakenByBot[ClientID] = false;
 
 	return 0;
 }
@@ -143,7 +140,7 @@ int CNetServer::Recv(CNetChunk *pChunk)
 					// check if we already got this client
 					for(int i = 0; i < MaxClients(); i++)
 					{
-						if(!m_SlotTakenByBot[i] && m_aSlots[i].m_Connection.State() != NET_CONNSTATE_OFFLINE &&
+						if(m_aSlots[i].m_Connection.State() != NET_CONNSTATE_OFFLINE &&
 							net_addr_comp(m_aSlots[i].m_Connection.PeerAddress(), &Addr) == 0)
 						{
 							Found = true; // silent ignore.. we got this client already
@@ -181,30 +178,13 @@ int CNetServer::Recv(CNetChunk *pChunk)
 						// FIRST_BOT_ID potential crash bug asdasd
 						for(int i = 0; i < MaxClients(); i++)
 						{
-							if(m_aSlots[i].m_Connection.State() == NET_CONNSTATE_OFFLINE && !m_SlotTakenByBot[i])
+							if(m_aSlots[i].m_Connection.State() == NET_CONNSTATE_OFFLINE)
 							{
 								Found = true;
 								m_aSlots[i].m_Connection.Feed(&m_RecvUnpacker.m_Data, &Addr);
 								if(m_pfnNewClient)
 									m_pfnNewClient(i, m_UserPtr);
 								break;
-							}
-						}
-						
-						// kick bot if a real player want's to join
-						if(!Found)
-						{
-							for(int i = 0; i < MaxClients(); i++)
-							{
-								if(m_SlotTakenByBot[i])
-								{
-									Drop(i, "Making room for a real player.");
-									Found = true;
-									m_aSlots[i].m_Connection.Feed(&m_RecvUnpacker.m_Data, &Addr);
-									if(m_pfnNewClient)
-										m_pfnNewClient(i, m_UserPtr);
-									break;
-								}
 							}
 						}
 
@@ -254,10 +234,6 @@ int CNetServer::Send(CNetChunk *pChunk)
 		int Flags = 0;
 		dbg_assert(pChunk->m_ClientID >= 0, "errornous client id");
 		dbg_assert(pChunk->m_ClientID < MaxClients(), "errornous client id");
-
-		// might crash, fatal error
-		if (m_SlotTakenByBot[pChunk->m_ClientID])
-			return -1;
 		
 		if(pChunk->m_Flags&NETSENDFLAG_VITAL)
 			Flags = NET_CHUNKFLAG_VITAL;

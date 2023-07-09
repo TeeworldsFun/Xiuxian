@@ -100,8 +100,6 @@ void CProjectile::FillInfo(CNetObj_Projectile *pProj)
 void CProjectile::Snap(int SnappingClient)
 {
 	float Ct = (Server()->Tick()-m_StartTick)/(float)Server()->TickSpeed();
-	if(!Server()->Translate(SnappingClient, m_Owner))
-		return;
 
 	if(NetworkClipped(SnappingClient, GetPos(Ct)))
 		return;

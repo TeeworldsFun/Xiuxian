@@ -68,7 +68,6 @@ public:
 	bool Hooking();
 	int HookedPlayer();
 
-	CCharacterCore GetCore(){ return m_Core; }
 	vec2 GetPosition(){ return m_Pos; }
 	
 	vec2 GetVel(){ return m_Core.m_Vel; }
@@ -91,6 +90,14 @@ public:
 	bool m_InSleep; // AI死亡后不能删除他的Character类，而是将他设置为睡眠，防止线程错误导致崩溃（悲）
 
 	void HandleAI();
+
+	// Need for bot (for now)
+	class CCharacterCore *GetCore() { return &m_Core;}
+	bool CanFire() { return m_ReloadTimer <= 0; }
+	int GetHealth() { return m_Health; }
+	int GetArmor() { return m_Armor; }
+	int GetAmmoCount(int Weapon) { return m_aWeapons[clamp(Weapon, 0,NUM_WEAPONS-1)].m_Ammo; }
+
 private:   
 	// player controlling this character
 	class CPlayer *m_pPlayer;

@@ -523,7 +523,6 @@ set_glob(ENGINE_SHARED GLOB src/engine/shared
 )
 set(ENGINE_GENERATED_SHARED src/game/generated/protocol.cpp src/game/generated/protocol.h)
 set_glob(GAME_SHARED GLOB src/game
-  astar.cpp
   collision.cpp
   collision.h
   gamecore.cpp
@@ -533,8 +532,6 @@ set_glob(GAME_SHARED GLOB src/game
   localization.cpp
   localization.h
   mapitems.h
-  pathfinding.cpp
-  pathfinding.h
   tuning.h
   variables.h
   version.h
@@ -582,8 +579,12 @@ set(SERVER_INCLUDES_DIRS
 )
 
 set_glob(GAME_SERVER GLOB_RECURSE src/game/server
-  ai/easy_xiesui_ai.cpp
-  ai/easy_xiesui_ai.h
+  ai/defence.cpp
+  ai/defence.h
+  ai/genetics.cpp
+  ai/genetics.h
+  ai/strategy.cpp
+  ai/strategy.h
   Data/accdata.h
   Data/itemdata.h
   Data/botdata.h
@@ -602,9 +603,10 @@ set_glob(GAME_SERVER GLOB_RECURSE src/game/server
   entities/projectile.h
   account.cpp
   account.h
-  ai_protocol.h
-  ai.cpp
-  ai.h
+  bot.cpp
+  bot.h
+  botengine.cpp
+  botengine.h
   db_sqlite3.cpp
   db_sqlite3.h
   db_mysql.cpp

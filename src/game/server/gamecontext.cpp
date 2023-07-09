@@ -11,39 +11,13 @@
 #include <game/gamecore.h>
 #include "Data/botdata.h"
 #include "Data/tizhidata.h"
+#include "Data/zuowangdao_names.h"
 #include <string>
 
 #include <teeuniverses/components/localization.h>
-
-#include <game/server/ai_protocol.h>
-#include <game/server/ai.h>
-
 #include <thread>
 
-bool CGameContext::IsBot(int ClientID)
-{
-	if (m_apPlayers[ClientID] && m_apPlayers[ClientID]->m_pAI)
-		return true;
-
-	return false;
-}
-
-void CGameContext::AIUpdateInput(int ClientID, int *Data)
-{
-	if (m_apPlayers[ClientID] && m_apPlayers[ClientID]->m_pAI)
-		m_apPlayers[ClientID]->m_pAI->UpdateInput(Data);
-}
-
-void CGameContext::UpdateAI()
-{
-	for (int i = 0; i < MAX_CLIENTS; i++)
-	{
-		if (m_apPlayers[i] && IsBot(i))
-		{
-			m_apPlayers[i]->AITick();
-		}
-	}
-}
+#include "bot.h"
 
 #ifdef CONF_SQLITE
 void CQueryRegister::OnData()
@@ -91,7 +65,7 @@ void CQueryLogin::OnData()
 		}
 
 		m_pGameServer->m_apPlayers[m_ClientID]->SetTeam(TEAM_RED);
-		m_pGameServer->SendChatTarget(m_ClientID, _("⚠ 共鸣成功 ⚠ 欢迎来到诡异界 ⚠"));
+		m_pGameServer->SendChatTarget(m_ClientID, _("⚠ 共鸣成功 ⚠ 欢迎来到异仙界 ⚠"));
 		//		}
 	}
 	else
@@ -134,6 +108,8 @@ void CGameContext::Construct(int Resetting)
 	if (Resetting == NO_RESET)
 		m_pVoteOptionHeap = new CHeap();
 
+	m_pBotEngine = new CBotEngine(this);
+
 #ifdef CONF_SQLITE
 	m_pDatabase = new CSql();
 #endif
@@ -160,6 +136,8 @@ CGameContext::~CGameContext()
 		delete m_apPlayers[i];
 	if (!m_Resetting)
 		delete m_pVoteOptionHeap;
+
+	delete m_pBotEngine;
 }
 
 void CGameContext::OnSetAuthed(int ClientID, int Level)
@@ -524,6 +502,18 @@ void CGameContext::OnTick()
 	// check tuning
 	CheckPureTuning();
 
+	// Check bot number
+	CheckBotNumber();
+
+	// Test basic move for bots
+	for (int i = 0; i < MAX_CLIENTS; i++)
+	{
+		if (!m_apPlayers[i] || !m_apPlayers[i]->m_IsBot)
+			continue;
+		CNetObj_PlayerInput Input = m_apPlayers[i]->m_pBot->GetLastInputData();
+		m_apPlayers[i]->OnPredictedInput(&Input);
+	}
+
 	// copy tuning
 	m_World.m_Core.m_Tuning = m_Tuning;
 	m_World.Tick();
@@ -562,7 +552,7 @@ void CGameContext::OnTick()
 				bool aVoteChecked[MAX_CLIENTS] = {0};
 				for (int i = 0; i < MAX_CLIENTS; i++)
 				{
-					if (!m_apPlayers[i] || m_apPlayers[i]->GetTeam() == TEAM_SPECTATORS || aVoteChecked[i]) // don't count in votes by spectators
+					if (!m_apPlayers[i] || m_apPlayers[i]->GetTeam() == TEAM_SPECTATORS || aVoteChecked[i] || m_apPlayers[i]->m_IsBot) // don't count in votes by spectators
 						continue;
 
 					int ActVote = m_apPlayers[i]->m_Vote;
@@ -618,18 +608,14 @@ void CGameContext::OnTick()
 			}
 		}
 	}
-
-#ifdef CONF_DEBUG
-	if (g_Config.m_DbgDummies)
+	// Test basic move for bots
+	for (int i = 0; i < MAX_CLIENTS; i++)
 	{
-		for (int i = 0; i < g_Config.m_DbgDummies; i++)
-		{
-			CNetObj_PlayerInput Input = {0};
-			Input.m_Direction = (i & 1) ? -1 : 1;
-			m_apPlayers[MAX_CLIENTS - i - 1]->OnPredictedInput(&Input);
-		}
+		if (!m_apPlayers[i] || !m_apPlayers[i]->m_IsBot)
+			continue;
+		CNetObj_PlayerInput Input = m_apPlayers[i]->m_pBot->GetInputData();
+		m_apPlayers[i]->OnDirectInput(&Input);
 	}
-#endif
 }
 
 // Server hooks
@@ -650,17 +636,19 @@ void CGameContext::OnClientEnter(int ClientID)
 	// world.insert_entity(&players[client_id]);
 	m_apPlayers[ClientID]->Respawn();
 	char aBuf[512];
+	
+	SendChatTarget(ClientID, _("服务器：TeeFun"));
+	SendChatTarget(ClientID, _("当前版本没有什么玩法，可以当成电子斗蛐蛐，只是测试一下AI会不会导致服务器崩溃（64个AI同时)"));
+	SendChatTarget(ClientID, _("投票里有一些属性，但是要注册账号才能看到，想要改宗门改修炼体质的联系管理员"));
+	SendChatTarget(ClientID, _("模式世界观为道诡异仙小说的BE结局（纯开发者自己瞎即把扯的）"));
+	SendChatTarget(ClientID, _("服主QQ：1562151175  服务器交流群：895105949"));
+	SendChatTarget(ClientID, _("——————————————————————————"));
+	SendChatTarget(ClientID, _("按F1看全部内容"));
+	SendChatTarget(ClientID, _("——————————————————————————"));
 	SendChatTarget(-1, _("魂体 '{str:p}' 共鸣进了此方小世界"), "p", Server()->ClientName(ClientID));
 
-	SendChatTarget(ClientID, _("使用指令 /register <肉体之名> <肉体之匙> 来创造你在诡异界的血肉体(不用加上 '<' 和 '>' )"));
+	SendChatTarget(ClientID, _("使用指令 /register <肉体之名> <肉体之匙> 来创造你在异仙界的血肉体(不用加上 '<' 和 '>' )"));
 
-	SendChatTarget(ClientID, _("服务器：TeeFun"));
-	
-	SendChatTarget(ClientID, _("当前版本没有什么玩法，只是测试一下AI线程（64个AI同时)"));
-	SendChatTarget(ClientID, _("投票里有一些属性，但是要注册账号才能看到，想要改宗门改修炼体质的联系管理员"));
-	SendChatTarget(ClientID, _("模式世界观为道诡异仙小说的BE结局（非官方设定）"));
-	SendChatTarget(ClientID, _("服主QQ：1562151175  服务器交流群：895105949"));
-	
 	str_format(aBuf, sizeof(aBuf), "team_join player='%d:%s' team=%d", ClientID, Server()->ClientName(ClientID), m_apPlayers[ClientID]->GetTeam());
 	Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "game", aBuf);
 
@@ -669,6 +657,13 @@ void CGameContext::OnClientEnter(int ClientID)
 
 void CGameContext::OnClientConnected(int ClientID, bool AI)
 {
+	// Check if the slot is used by a bot
+	if (m_apPlayers[ClientID] && m_apPlayers[ClientID]->m_IsBot)
+	{
+		delete m_apPlayers[ClientID];
+		m_apPlayers[ClientID] = 0;
+	}
+
 	if (AI)
 		m_apPlayers[ClientID] = new (ClientID) CPlayer(this, ClientID, 10);
 	else
@@ -677,6 +672,8 @@ void CGameContext::OnClientConnected(int ClientID, bool AI)
 	m_apPlayers[ClientID]->m_IsBot = AI;
 
 	(void)m_pController->CheckTeamBalance();
+
+	CheckBotNumber();
 
 #ifdef CONF_DEBUG
 	if (g_Config.m_DbgDummies)
@@ -1053,9 +1050,9 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 			Server()->SetClientClan(ClientID, pMsg->m_pClan);
 			Server()->SetClientCountry(ClientID, pMsg->m_Country);
 			str_copy(pPlayer->m_TeeInfos.m_SkinName, pMsg->m_pSkin, sizeof(pPlayer->m_TeeInfos.m_SkinName));
-			pPlayer->m_TeeInfos.m_UseCustomColor = pMsg->m_UseCustomColor;
-			pPlayer->m_TeeInfos.m_ColorBody = pMsg->m_ColorBody;
-			pPlayer->m_TeeInfos.m_ColorFeet = pMsg->m_ColorFeet;
+			pPlayer->m_TeeInfos.m_UseCustomColor = true;
+			pPlayer->m_TeeInfos.m_ColorBody = 65280;
+			pPlayer->m_TeeInfos.m_ColorFeet = 65280;
 			m_pController->OnPlayerInfoChange(pPlayer);
 		}
 		else if (MsgID == NETMSGTYPE_CL_EMOTICON && !m_World.m_Paused)
@@ -1093,9 +1090,9 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 			Server()->SetClientClan(ClientID, pMsg->m_pClan);
 			Server()->SetClientCountry(ClientID, pMsg->m_Country);
 			str_copy(pPlayer->m_TeeInfos.m_SkinName, pMsg->m_pSkin, sizeof(pPlayer->m_TeeInfos.m_SkinName));
-			pPlayer->m_TeeInfos.m_UseCustomColor = pMsg->m_UseCustomColor;
-			pPlayer->m_TeeInfos.m_ColorBody = pMsg->m_ColorBody;
-			pPlayer->m_TeeInfos.m_ColorFeet = pMsg->m_ColorFeet;
+			pPlayer->m_TeeInfos.m_UseCustomColor = true;
+			pPlayer->m_TeeInfos.m_ColorBody = 65280;
+			pPlayer->m_TeeInfos.m_ColorFeet = 65280;
 			m_pController->OnPlayerInfoChange(pPlayer);
 
 			// send vote options
@@ -1710,8 +1707,8 @@ void CGameContext::ConRegister(IConsole::IResult *pResult, void *pUserData)
 	int ClientID = pResult->GetClientID();
 	if (pResult->NumArguments() < 2)
 	{
-		pThis->SendChatTarget(ClientID, _("使用指令 /register <肉体之名> <肉体之匙> 来创造你在诡异界的血肉体(不用加上 '<' 和 '>' )"));
-		pThis->SendChatTarget(ClientID, _("请牢记你在诡异界的肉体名以及此体之匙，否则你的血肉将永远失去魂体"));
+		pThis->SendChatTarget(ClientID, _("使用指令 /register <肉体之名> <肉体之匙> 来创造你在异仙界的血肉体(不用加上 '<' 和 '>' )"));
+		pThis->SendChatTarget(ClientID, _("请牢记你在异仙界的肉体名以及此体之匙，否则你的血肉将永远失去魂体"));
 		return;
 	}
 
@@ -1733,8 +1730,8 @@ void CGameContext::ConLogin(IConsole::IResult *pResult, void *pUserData)
 	int ClientID = pResult->GetClientID();
 	if (pResult->NumArguments() < 2)
 	{
-		pThis->SendChatTarget(ClientID, _("使用指令 /login <肉体之名> <肉体之匙> 进入诡异界(不用加上 '<' 和 '>' )"));
-		pThis->SendChatTarget(ClientID, _("如果忘记了你的血肉之名与匙，可使用仙界之聊天功法QQ联系诡异界主神"));
+		pThis->SendChatTarget(ClientID, _("使用指令 /login <肉体之名> <肉体之匙> 进入异仙界(不用加上 '<' 和 '>' )"));
+		pThis->SendChatTarget(ClientID, _("如果忘记了你的血肉之名与匙，可使用仙界之聊天功法QQ联系异仙界主神"));
 		pThis->SendChatTarget(ClientID, _("主神的联络魂号：1562151175"));
 		return;
 	}
@@ -1881,35 +1878,18 @@ void CGameContext::OnInit(/*class IKernel *pKernel*/)
 	m_Sql->LoadItem();
 	m_Sql->LoadZongMen();
 
-	// if(!data) // only load once
-	// data = load_data_from_memory(internal_data);
-
 	for (int i = 0; i < NUM_NETOBJTYPES; i++)
 		Server()->SnapSetStaticsize(i, m_NetObjHandler.GetObjSize(i));
 
 	m_Layers.Init(Kernel());
 	m_Collision.Init(&m_Layers);
 
-	// reset everything here
-	// world = new GAMEWORLD;
-	// players = new CPlayer[MAX_CLIENTS];
-
-	// select gametype
+	// create game
 	m_pController = new CGameController(this);
-
-	// setup core world
-	// for(int i = 0; i < MAX_CLIENTS; i++)
-	//	game.players[i].core.world = &game.world.core;
 
 	// create all entities from the game layer
 	CMapItemLayerTilemap *pTileMap = m_Layers.GameLayer();
 	CTile *pTiles = (CTile *)Kernel()->RequestInterface<IMap>()->GetData(pTileMap->m_Data);
-
-	/*
-	num_spawn_points[0] = 0;
-	num_spawn_points[1] = 0;
-	num_spawn_points[2] = 0;
-	*/
 
 	for (int y = 0; y < pTileMap->m_Height; y++)
 	{
@@ -1925,20 +1905,9 @@ void CGameContext::OnInit(/*class IKernel *pKernel*/)
 		}
 	}
 
-	// game.world.insert_entity(game.Controller);
+	m_pBotEngine->Init(pTiles, pTileMap->m_Width, pTileMap->m_Height);
 
-#ifdef CONF_DEBUG
-	if (g_Config.m_DbgDummies)
-	{
-		for (int i = 0; i < g_Config.m_DbgDummies; i++)
-		{
-			OnClientConnected(MAX_CLIENTS - i - 1);
-		}
-	}
-#endif
-
-	for (int i = 0; i < 64; i++)
-		AddZombie("TestBot");
+	CheckBotNumber();
 }
 
 void CGameContext::OnShutdown()
@@ -1961,6 +1930,13 @@ void CGameContext::OnSnap(int ClientID)
 		if (arpPlayer)
 			arpPlayer->Snap(ClientID);
 	}
+
+	// Snap bot debug info
+	if (g_Config.m_SvBotEngineDrawGraph)
+		m_pBotEngine->Snap(ClientID);
+	for (int i = 0; i < MAX_CLIENTS; i++)
+		if (m_apPlayers[i] && m_apPlayers[i]->IsBot() && g_Config.m_SvBotDrawTarget)
+			m_apPlayers[i]->m_pBot->Snap(ClientID);
 
 	if (ClientID >= MAX_PLAYERS)
 		m_apPlayers[ClientID]->FakeSnap();
@@ -2100,9 +2076,9 @@ void CGameContext::InitVotes(int ClientID)
 
 	dbg_msg("h", "%s", m_aZongMenData[m_apPlayers[ClientID]->m_AccData.m_ZongMen - 1].m_Name);
 	SAccData Data = m_apPlayers[ClientID]->m_AccData;
-	AddVote_VL(ClientID, "skip", _("==== ⚠诡异界修士面板⚠ ="));
+	AddVote_VL(ClientID, "skip", _("==== ⚠异仙界修士面板⚠ ="));
 	AddVote_VL(ClientID, "skip", _("肉体辨识标识: {int:UID}"), "UID", &m_apPlayers[ClientID]->m_AccData.m_UserID);
-	AddVote_VL(ClientID, "skip", _("宗门: {str:ZongMen}"), "ZongMen", m_aZongMenData[Data.m_ZongMen - 1].m_Name);
+	AddVote_VL(ClientID, "skip", _("宗门: {str:ZongMen} - {str:info}"), "ZongMen", m_aZongMenData[Data.m_ZongMen - 1].m_Name, "info", m_aZongMenData[Data.m_ZongMen - 1].m_Desc);
 	AddVote_VL(ClientID, "skip", _("修为: {int:Xiuwei}"), "Xiuwei", &Data.m_Xiuwei);
 	AddVote_VL(ClientID, "skip", _("魄: {int:Po}"), "Po", &Data.m_Po);
 	AddVote_VL(ClientID, "skip", _(" "));
@@ -2155,15 +2131,131 @@ void CGameContext::ClearVotes(int ClientID)
 	InitVotes(ClientID);
 }
 
-void CGameContext::AddZombie(const char *Name)
+int CGameContext::PlayerCount()
 {
-	Server()->AddZombie(Name);
+	int c = 0;
+	for (int i = 0; i < MAX_PLAYERS; i++)
+	{
+		if (m_apPlayers[i])
+			c++;
+	}
+	return c;
 }
 
-bool CGameContext::AIInputUpdateNeeded(int ClientID)
+void CGameContext::DeleteBot(int i)
 {
-	if (m_apPlayers[ClientID])
-		return m_apPlayers[ClientID]->AIInputChanged();
+	Server()->DelBot(i);
+	if (m_apPlayers[i] && m_apPlayers[i]->m_IsBot)
+	{
+		dbg_msg("context", "Delete bot at slot: %d", i);
+		delete m_apPlayers[i];
+		m_apPlayers[i] = 0;
+	}
+}
 
-	return false;
+bool CGameContext::AddBot(int i, bool UseDropPlayer)
+{
+	if (Server()->NewBot(i) == 1)
+		return false;
+
+	int BotNumber = 0;
+	for (int i = 0; i < MAX_CLIENTS; ++i)
+	{
+		if (!m_apPlayers[i])
+			continue;
+		if (m_apPlayers[i]->m_IsBot)
+			BotNumber++;
+	}
+
+	int StartTeam = 0;
+
+	if (BotNumber >= 32)
+		StartTeam = 1; // 坐忘道
+	else
+		StartTeam = 0; // 清风观
+
+	if (!UseDropPlayer || !m_apPlayers[i])
+		m_apPlayers[i] = new (i) CPlayer(this, i, StartTeam);
+
+	m_apPlayers[i]->m_IsBot = true;
+	m_apPlayers[i]->m_pBot = new CBot(m_pBotEngine, m_apPlayers[i]);
+	Server()->SetClientClan(i, "坐忘道");
+	if (StartTeam == 1)
+	{
+		Server()->SetClientName(i, ZWD_XuLieNames[rand() % 27], true);
+		m_apPlayers[i]->m_TeeInfos.m_UseCustomColor = true;
+		m_apPlayers[i]->m_TeeInfos.m_ColorBody = 11730688;
+		m_apPlayers[i]->m_TeeInfos.m_ColorFeet = 11730688;
+	}
+	else
+	{
+		Server()->SetClientName(i, "无名道士", true);
+		Server()->SetClientClan(i, "清风观");
+		m_apPlayers[i]->m_TeeInfos.m_UseCustomColor = true;
+		m_apPlayers[i]->m_TeeInfos.m_ColorBody = 65280;
+		m_apPlayers[i]->m_TeeInfos.m_ColorFeet = 65280;
+	}
+
+	return true;
+}
+
+bool CGameContext::ReplacePlayerByBot(int ClientID)
+{
+	int BotNumber = 0;
+	int PlayerCount = -1;
+	for (int i = 0; i < MAX_CLIENTS; ++i)
+	{
+		if (!m_apPlayers[i])
+			continue;
+		if (m_apPlayers[i]->m_IsBot)
+			BotNumber++;
+		else
+			PlayerCount++;
+	}
+	if (!PlayerCount || BotNumber >= g_Config.m_SvBotSlots)
+		return false;
+	return AddBot(ClientID, true);
+}
+
+void CGameContext::CheckBotNumber()
+{
+	int BotNumber = 0;
+	int PlayerCount = 0;
+	for (int i = 0; i < MAX_CLIENTS; ++i)
+	{
+		if (!m_apPlayers[i])
+			continue;
+		if (m_apPlayers[i]->m_IsBot)
+			BotNumber++;
+		else
+			PlayerCount++;
+	}
+	if (!PlayerCount)
+		BotNumber += g_Config.m_SvBotSlots;
+	// Remove bot excedent
+	if (BotNumber - g_Config.m_SvBotSlots > 0)
+	{
+		int FirstBot = 0;
+		for (int i = 0; i < BotNumber - g_Config.m_SvBotSlots; i++)
+		{
+			for (; FirstBot < MAX_CLIENTS; FirstBot++)
+				if (m_apPlayers[FirstBot] && m_apPlayers[FirstBot]->m_IsBot)
+					break;
+			if (FirstBot < MAX_CLIENTS)
+				DeleteBot(FirstBot);
+		}
+	}
+	// Add missing bot if possible
+	if (g_Config.m_SvBotSlots - BotNumber > 0)
+	{
+		int LastFreeSlot = Server()->MaxClients() - 1;
+		for (int i = 0; i < g_Config.m_SvBotSlots - BotNumber; i++)
+		{
+			for (; LastFreeSlot >= 0; LastFreeSlot--)
+				if (!m_apPlayers[LastFreeSlot])
+					break;
+			if (LastFreeSlot >= 0)
+				AddBot(LastFreeSlot);
+		}
+	}
 }

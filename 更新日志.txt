@@ -8,8 +8,6 @@ This is a update log, include some idea from my mind. But Chinese only.
 那我可以告诉你，这个模式的数据库以及基层是OnTime。
 今天写一点NPC内容吧，希望能有灵感祝我搞定NPC。
 
-—————— ST-Chara
-
 2023年6月7日 天气：大雨
 今天挺开心，但是我不该写在这里
 我把Siile写的AI复制过来了，我没实力写高级ai，但是这个模式需要
@@ -22,3 +20,14 @@ This is a update log, include some idea from my mind. But Chinese only.
 Siile的AI不能支持线程，悲
 看看能怎么优化吧..
 打了个64p的补丁
+
+2023年7月4日 天气：舒服
+今天兴奋，不应写于此
+改了改AI机制，现在支持多线程了
+
+2023年7月9日 天气：热死我了
+今天开心，不应写这
+把Siile的AI改成nheir的了，没必要多线程了现在
+舒服
+
+—————— ST-Chara

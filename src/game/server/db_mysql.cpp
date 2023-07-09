@@ -301,7 +301,7 @@ static void login_thread(void *user)
                         // login should be the last thing
                         dbg_msg("SQL", "Account '%s' logged in sucessfully", Data->Data.m_Username);
 
-                        GameServer()->SendChatTarget(Data->Data.m_ClientID, _("⚠ 共鸣成功 ⚠ 欢迎来到诡异界 ⚠"));
+                        GameServer()->SendChatTarget(Data->Data.m_ClientID, _("⚠ 共鸣成功 ⚠ 欢迎来到异仙界 ⚠"));
                     }
                     else
                     {

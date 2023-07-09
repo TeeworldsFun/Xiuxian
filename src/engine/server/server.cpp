@@ -298,7 +298,7 @@ CServer::CServer() : m_DemoRecorder(&m_SnapshotDelta)
 	m_pCurrentMapData = 0;
 	m_CurrentMapSize = 0;
 
-	m_MapReload = 0;
+	m_MapReload = false;
 
 	m_RconClientID = IServer::RCON_CID_SERV;
 	m_RconAuthLevel = AUTHED_ADMIN;
@@ -390,8 +390,7 @@ void CServer::SetClientScore(int ClientID, int Score)
 
 void CServer::Kick(int ClientID, const char *pReason)
 {
-	m_NetServer.m_SlotTakenByBot[ClientID] = false;
-	m_aClients[ClientID].m_Bot = false;
+	m_aClients[ClientID].m_IsBot = false;
 
 	if (ClientID < 0 || ClientID >= MAX_CLIENTS || m_aClients[ClientID].m_State == CClient::STATE_EMPTY)
 	{
@@ -437,6 +436,7 @@ int CServer::Init()
 		m_aClients[i].m_Country = -1;
 		m_aClients[i].m_Snapshots.Init();
 		m_aClients[i].m_CustClt = 0;
+		m_aClients[i].m_IsBot = false;
 	}
 
 	m_CurrentGameTick = 0;
@@ -552,7 +552,7 @@ int CServer::SendMsgEx(CMsgPacker *pMsg, int Flags, int ClientID, bool System)
 			// broadcast
 			int i;
 			for (i = 0; i < MAX_CLIENTS; i++)
-				if (m_aClients[i].m_State == CClient::STATE_INGAME && !m_aClients[i].m_Bot)
+				if (m_aClients[i].m_State == CClient::STATE_INGAME && !m_aClients[i].m_IsBot)
 				{
 					Packet.m_ClientID = i;
 					m_NetServer.Send(&Packet);
@@ -561,7 +561,7 @@ int CServer::SendMsgEx(CMsgPacker *pMsg, int Flags, int ClientID, bool System)
 		else
 		{
 			// potential fatal error crash bug
-			if (!m_aClients[ClientID].m_Bot)
+			if (!m_aClients[ClientID].m_IsBot)
 				m_NetServer.Send(&Packet);
 		}
 	}
@@ -592,6 +592,10 @@ void CServer::DoSnapshot()
 	{
 		// client must be ingame to recive snapshots
 		if (m_aClients[i].m_State != CClient::STATE_INGAME)
+			continue;
+
+		// client must be human to receive snapshots
+		if(m_aClients[i].m_IsBot)
 			continue;
 
 		// this client is trying to recover, don't spam snapshots
@@ -703,6 +707,10 @@ void CServer::DoSnapshot()
 int CServer::NewClientCallback(int ClientID, void *pUser)
 {
 	CServer *pThis = (CServer *)pUser;
+	
+	if(pThis->m_aClients[ClientID].m_IsBot)
+		pThis->GameServer()->DeleteBot(ClientID);
+
 	pThis->m_aClients[ClientID].m_State = CClient::STATE_AUTH;
 	pThis->m_aClients[ClientID].m_aName[0] = 0;
 	pThis->m_aClients[ClientID].m_aClan[0] = 0;
@@ -712,6 +720,7 @@ int CServer::NewClientCallback(int ClientID, void *pUser)
 	pThis->m_aClients[ClientID].m_pRconCmdToSend = 0;
 	memset(&pThis->m_aClients[ClientID].m_Addr, 0, sizeof(NETADDR));
 	pThis->m_aClients[ClientID].m_CustClt = 0;
+	pThis->m_aClients[ClientID].m_IsBot = false;
 	pThis->m_aClients[ClientID].Reset();
 	return 0;
 }
@@ -737,8 +746,9 @@ int CServer::DelClientCallback(int ClientID, const char *pReason, void *pUser)
 	pThis->m_aClients[ClientID].m_Authed = AUTHED_NO;
 	pThis->m_aClients[ClientID].m_AuthTries = 0;
 	pThis->m_aClients[ClientID].m_pRconCmdToSend = 0;
-	pThis->m_aClients[ClientID].m_Snapshots.PurgeAll();
+	pThis->m_aClients[ClientID].m_IsBot = false;
 	pThis->m_aClients[ClientID].m_CustClt = 0;
+	pThis->m_aClients[ClientID].m_Snapshots.PurgeAll();
 	return 0;
 }
 
@@ -1117,7 +1127,7 @@ void CServer::SendServerInfo(const NETADDR *pAddr, int Token, bool Extended, int
 	int PlayerCount = 0, ClientCount = 0;
 	for (int i = 0; i < MAX_PLAYERS; i++)
 	{
-		if (m_aClients[i].m_State != CClient::STATE_EMPTY)
+		if (m_aClients[i].m_State != CClient::STATE_EMPTY && !m_aClients[i].m_IsBot)
 		{
 			if (GameServer()->IsClientPlayer(i))
 				PlayerCount++;
@@ -1400,10 +1410,11 @@ int CServer::Run()
 			int NewTicks = 0;
 
 			// load new map TODO: don't poll this
-			if (str_comp(g_Config.m_SvMap, m_aCurrentMap) != 0 || m_MapReload)
+			if (m_MapReload)
 			{
-				m_MapReload = 0;
-
+				// 懒的新建变量
+				m_MapReload = true;
+				
 				// load map
 				if (LoadMap(g_Config.m_SvMap))
 				{
@@ -1412,8 +1423,6 @@ int CServer::Run()
 
 					for (int c = 0; c < MAX_CLIENTS; c++)
 					{
-						m_NetServer.m_SlotTakenByBot[c] = false;
-
 						if (m_aClients[c].m_State <= CClient::STATE_AUTH)
 							continue;
 
@@ -1428,6 +1437,8 @@ int CServer::Run()
 					Kernel()->ReregisterInterface(GameServer());
 					GameServer()->OnInit();
 					UpdateServerInfo();
+
+					m_MapReload = false;
 				}
 				else
 				{
@@ -1473,7 +1484,6 @@ int CServer::Run()
 			// master server stuff
 			m_Register.RegisterUpdate(m_NetServer.NetType());
 
-			UpdateAIInput();
 			PumpNetwork();
 
 			if (ReportTime < time_get())
@@ -1607,7 +1617,7 @@ void CServer::ConStopRecord(IConsole::IResult *pResult, void *pUser)
 
 void CServer::ConMapReload(IConsole::IResult *pResult, void *pUser)
 {
-	((CServer *)pUser)->m_MapReload = 1;
+	((CServer *)pUser)->m_MapReload = true;
 }
 
 void CServer::ConLogout(IConsole::IResult *pResult, void *pUser)
@@ -1830,91 +1840,6 @@ int main(int argc, const char **argv) // ignore_convention
 	return 0;
 }
 
-void CServer::UpdateAIInput()
-{
-	for (int i = 0; i < MAX_CLIENTS; i++)
-	{
-		if (m_aClients[i].m_State == CClient::STATE_INGAME && m_aClients[i].m_Bot)
-		{
-			if (GameServer()->AIInputUpdateNeeded(i))
-			{
-				CClient::CInput *pInput;
-
-				m_aClients[i].m_LastInputTick = Tick();
-
-				pInput = &m_aClients[i].m_aInputs[m_aClients[i].m_CurrentInput];
-				pInput->m_GameTick = Tick() + 1;
-
-				// update input data
-				GameServer()->AIUpdateInput(i, pInput->m_aData);
-
-				mem_copy(m_aClients[i].m_LatestInput.m_aData, pInput->m_aData, MAX_INPUT_SIZE * sizeof(int));
-
-				m_aClients[i].m_CurrentInput++;
-				m_aClients[i].m_CurrentInput %= 200;
-
-				// call the mod with the fresh input data
-				if (m_aClients[i].m_State == CClient::STATE_INGAME)
-					GameServer()->OnClientDirectInput(i, m_aClients[i].m_LatestInput.m_aData);
-			}
-		}
-	}
-}
-
-void CServer::AddZombie(const char *Name)
-{
-	int ClientID = -1;
-	for (int i = MAX_PLAYERS; i < MAX_CLIENTS; i++)
-	{
-		if (m_aClients[i].m_State == CClient::STATE_EMPTY)
-		{
-			ClientID = i;
-			break;
-		}
-	}
-
-	if (ClientID == -1)
-		return;
-
-	// fake reserve a slot
-	m_NetServer.m_SlotTakenByBot[ClientID] = true;
-
-	m_aClients[ClientID].m_State = CClient::STATE_CONNECTING;
-	GameServer()->OnClientConnected(ClientID, true);
-	// GameServer()->OnClientEnter(i);
-	m_aClients[ClientID].m_State = CClient::STATE_INGAME;
-	m_aClients[ClientID].m_Bot = true;
-
-	switch(rand()%3)
-	{
-		case 0:
-			SetClientName(ClientID, ZWD_XuLieNames[rand() % 27], true);
-			break;
-		
-		case 1:
-			SetClientName(ClientID, ZWD_DaSanYuanNames[rand() % 3], true);
-			break;
-		
-		case 2:
-			SetClientName(ClientID, ZWD_TouZi, true);
-			break;
-	}
-
-	SetClientClan(ClientID, "坐忘道");
-}
-
-void CServer::KickBots()
-{
-	for (int i = 0; i < MAX_CLIENTS; i++)
-	{
-		if (m_aClients[i].m_State != CClient::STATE_EMPTY && m_NetServer.m_SlotTakenByBot[i])
-		{
-			m_NetServer.m_SlotTakenByBot[i] = false;
-			m_NetServer.Drop(i, "");
-		}
-	}
-}
-
 int* CServer::GetIdMap(int ClientID)
 {
 	return (int*)(IdMap + VANILLA_MAX_CLIENTS * ClientID);
@@ -1923,4 +1848,34 @@ int* CServer::GetIdMap(int ClientID)
 void CServer::SetCustClt(int ClientID)
 {
 	m_aClients[ClientID].m_CustClt = 1;
+}
+
+int CServer::GetMapReload()
+{
+	return m_MapReload;
+}
+
+int CServer::NewBot(int ClientID)
+{
+	if(m_aClients[ClientID].m_State > CClient::STATE_EMPTY && !m_aClients[ClientID].m_IsBot)
+		return 1;
+	m_aClients[ClientID].m_State = CClient::STATE_INGAME;
+	m_aClients[ClientID].m_IsBot = true;
+	return 0;
+}
+
+int CServer::DelBot(int ClientID)
+{
+	if( !m_aClients[ClientID].m_IsBot )
+		return 1;
+	m_aClients[ClientID].m_State = CClient::STATE_EMPTY;
+	m_aClients[ClientID].m_aName[0] = 0;
+	m_aClients[ClientID].m_aClan[0] = 0;
+	m_aClients[ClientID].m_Country = -1;
+	m_aClients[ClientID].m_Authed = AUTHED_NO;
+	m_aClients[ClientID].m_AuthTries = 0;
+	m_aClients[ClientID].m_pRconCmdToSend = 0;
+	m_aClients[ClientID].m_IsBot = false;
+	m_aClients[ClientID].m_Snapshots.PurgeAll();
+	return 0;
 }

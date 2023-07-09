@@ -47,6 +47,9 @@ public:
 	bool Get(const char *pName, float *pValue);
 };
 
+// 0.7 compliant
+#define direction(x) GetDir(x)
+#define angle(x) GetAngle(x)
 
 inline vec2 GetDirection(int Angle)
 {

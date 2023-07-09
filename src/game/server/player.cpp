@@ -3,6 +3,7 @@
 #include <new>
 #include <engine/shared/config.h>
 #include "player.h"
+#include "bot.h"
 
 MACRO_ALLOC_POOL_ID_IMPL(CPlayer, MAX_CLIENTS)
 
@@ -19,7 +20,8 @@ CPlayer::CPlayer(CGameContext *pGameServer, int ClientID, int BotType)
 	m_SpectatorID = SPEC_FREEVIEW;
 	m_LastActionTick = Server()->Tick();
 	m_TeamChangeTick = Server()->Tick();
-	m_Team = BotType;
+	m_Team = 0;
+	m_RealTeam = BotType;
 	SetLanguage(Server()->GetClientLanguage(ClientID));
 
 	m_pAccount = new CAccount(this, m_pGameServer);
@@ -37,23 +39,19 @@ CPlayer::CPlayer(CGameContext *pGameServer, int ClientID, int BotType)
 	idMap[0] = ClientID;
 
 	m_IsBot = false;
-	m_pAI = NULL;
 }
 
 CPlayer::~CPlayer()
 {
-	if (m_pAI)
-		delete m_pAI;
-
+	if (m_pBot)
+		delete m_pBot;
 	delete m_pCharacter;
 	m_pCharacter = 0;
 }
 
 void CPlayer::Tick()
 {
-#ifdef CONF_DEBUG
-	if (!g_Config.m_DbgDummies || m_ClientID < MAX_CLIENTS - g_Config.m_DbgDummies)
-#endif
+	if (!m_IsBot)
 		if (!Server()->ClientIngame(m_ClientID))
 			return;
 
@@ -99,6 +97,8 @@ void CPlayer::Tick()
 			{
 				delete m_pCharacter;
 				m_pCharacter = 0;
+				if (IsBot())
+					m_pBot->OnReset();
 			}
 		}
 		else if (m_Spawning && m_RespawnTick <= Server()->Tick())
@@ -134,21 +134,21 @@ void CPlayer::PostTick()
 void CPlayer::Snap(int SnappingClient)
 {
 	int ID = m_ClientID;
-	if (!Server()->Translate(ID, SnappingClient) && m_IsBot)
-		return;
-
-	if (!Server()->ClientIngame(m_ClientID))
-		return;
+	// if (!Server()->Translate(ID, SnappingClient) && m_IsBot)
+	//	return;
+	if (!m_IsBot)
+		if (!Server()->ClientIngame(m_ClientID))
+			return;
 
 	int id = m_ClientID;
-	if (!Server()->Translate(id, SnappingClient))
-		return;
+	// if (!Server()->Translate(id, SnappingClient))
+	//	return;
 
 	CNetObj_ClientInfo *pClientInfo = static_cast<CNetObj_ClientInfo *>(Server()->SnapNewItem(NETOBJTYPE_CLIENTINFO, id, sizeof(CNetObj_ClientInfo)));
 	if (!pClientInfo)
 		return;
 
-	if (m_InSleep)
+	if (GetCharacter() && GetCharacter()->m_InSleep)
 	{
 		StrToInts(&pClientInfo->m_Name0, 4, " ");
 		StrToInts(&pClientInfo->m_Clan0, 3, "");
@@ -164,12 +164,14 @@ void CPlayer::Snap(int SnappingClient)
 		pClientInfo->m_ColorBody = m_TeeInfos.m_ColorBody;
 		pClientInfo->m_ColorFeet = m_TeeInfos.m_ColorFeet;
 	}
-	
+
 	CNetObj_PlayerInfo *pPlayerInfo = static_cast<CNetObj_PlayerInfo *>(Server()->SnapNewItem(NETOBJTYPE_PLAYERINFO, id, sizeof(CNetObj_PlayerInfo)));
 	if (!pPlayerInfo)
 		return;
 
 	pPlayerInfo->m_Latency = SnappingClient == -1 ? m_Latency.m_Min : GameServer()->m_apPlayers[SnappingClient]->m_aActLatency[m_ClientID];
+	if (m_IsBot)
+		pPlayerInfo->m_Latency = 0;
 	pPlayerInfo->m_Local = 0;
 	pPlayerInfo->m_ClientID = id;
 	pPlayerInfo->m_Score = m_Score;
@@ -222,7 +224,7 @@ void CPlayer::OnPredictedInput(CNetObj_PlayerInput *NewInput)
 
 void CPlayer::OnDirectInput(CNetObj_PlayerInput *NewInput)
 {
-	if (NewInput->m_PlayerFlags & PLAYERFLAG_CHATTING && !m_pAI)
+	if (NewInput->m_PlayerFlags & PLAYERFLAG_CHATTING)
 	{
 		// skip the input if chat is active
 		if (m_PlayerFlags & PLAYERFLAG_CHATTING)
@@ -269,6 +271,8 @@ void CPlayer::KillCharacter(int Weapon)
 		m_pCharacter->Die(m_ClientID, Weapon);
 		delete m_pCharacter;
 		m_pCharacter = 0;
+		if (IsBot())
+			m_pBot->OnReset();
 	}
 }
 
@@ -340,6 +344,7 @@ void CPlayer::SetLanguage(const char *pLanguage)
 
 void CPlayer::FakeSnap()
 {
+	return;
 	int FakeID = VANILLA_MAX_CLIENTS - 1;
 	CNetObj_ClientInfo *pClientInfo = static_cast<CNetObj_ClientInfo *>(Server()->SnapNewItem(NETOBJTYPE_CLIENTINFO, FakeID, sizeof(CNetObj_ClientInfo)));
 	if (!pClientInfo)
@@ -368,16 +373,7 @@ void CPlayer::FakeSnap()
 	pSpectatorInfo->m_Y = m_ViewPos.y;
 }
 
-void CPlayer::AITick()
-{
-	if (m_pAI)
-		m_pAI->Tick();
-}
-
-bool CPlayer::AIInputChanged()
-{
-	if (m_pAI)
-		return m_pAI->m_InputChanged;
-
-	return false;
+void CPlayer::SetCID(int ClientID) {
+	if(m_IsBot)
+		m_ClientID = ClientID;
 }

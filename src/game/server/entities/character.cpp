@@ -93,13 +93,7 @@ bool CCharacter::Spawn(CPlayer *pPlayer, vec2 Pos)
 	GameServer()->m_World.InsertEntity(this);
 	m_Alive = true;
 
-	GameServer()->m_pController->OnCharacterSpawn(this, pPlayer->m_IsBot);
-
-	if (pPlayer->m_pAI)
-	{
-		pPlayer->m_pAI->OnCharacterSpawn(this);
-		m_IsBot = true;
-	}
+	GameServer()->m_pController->OnCharacterSpawn(this, GetPlayer()->m_IsBot);
 
 	return true;
 }
@@ -323,6 +317,8 @@ void CCharacter::FireWeapon()
 
 			if ((pTarget == this) || GameServer()->Collision()->IntersectLine(ProjStartPos, pTarget->m_Pos, NULL, NULL))
 				continue;
+
+			int id = GetPlayer()->GetCID();
 
 			// set his velocity to fast upward (for now)
 			if (length(pTarget->m_Pos - ProjStartPos) > 0.0f)
@@ -701,12 +697,6 @@ void CCharacter::Die(int Killer, int Weapon)
 		m_pPlayer->m_RespawnTick = Server()->Tick() + Server()->TickSpeed() / 2;
 		int ModeSpecial = GameServer()->m_pController->OnCharacterDeath(this, GameServer()->m_apPlayers[Killer], Weapon);
 
-		char aBuf[256];
-		str_format(aBuf, sizeof(aBuf), "kill killer='%d:%s' victim='%d:%s' weapon=%d special=%d",
-				   Killer, Server()->ClientName(Killer),
-				   m_pPlayer->GetCID(), Server()->ClientName(m_pPlayer->GetCID()), Weapon, ModeSpecial);
-		GameServer()->Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "game", aBuf);
-
 		// send the kill message
 		CNetMsg_Sv_KillMsg Msg;
 		Msg.m_Killer = Killer;
@@ -724,7 +714,13 @@ void CCharacter::Die(int Killer, int Weapon)
 	}
 	else // 如果这是个AI操控的Character，就执行这个
 	{
-		m_pPlayer->m_InSleep = true;
+		m_InSleep = true;
+		vec2 SpawnPos;
+
+		//if (!GameServer()->m_pController->CanSpawn(0, &SpawnPos))
+		//	return;
+
+		
 	}
 	GameServer()->CreateDeath(m_Pos, m_pPlayer->GetCID());
 }
@@ -733,12 +729,10 @@ bool CCharacter::TakeDamage(vec2 Force, int Dmg, int From, int Weapon)
 {
 	m_Core.m_Vel += Force;
 
-	// signal AI
-	if (Dmg > 0 && GetPlayer()->m_pAI && Weapon >= 0)
-		GetPlayer()->m_pAI->ReceiveDamage(From, Dmg);
+	int id = GetPlayer()->GetCID();
 
-	if (GameServer()->m_pController->IsFriendlyFire(m_pPlayer->GetCID(), From) && !g_Config.m_SvTeamdamage)
-		return false;
+	//if (GameServer()->m_pController->IsFriendlyFire(m_pPlayer->GetCID(), From))
+	//	return false;
 
 	// m_pPlayer only inflicts half damage on self
 	if (From == m_pPlayer->GetCID())
@@ -831,8 +825,8 @@ void CCharacter::Snap(int SnappingClient)
 {
 	int Id = m_pPlayer->GetCID();
 
-	if (!Server()->Translate(Id, SnappingClient) || GetPlayer()->m_InSleep)
-		return;
+	//if (!Server()->Translate(Id, SnappingClient) || GetPlayer()->m_InSleep)
+	//	return;
 
 	if (NetworkClipped(SnappingClient))
 		return;
@@ -920,10 +914,7 @@ void CCharacter::SetEmoteFor(int Emote, int Ticks, int LockEmote, bool UseTime)
 
 void CCharacter::AutoWeaponChange()
 {
-	if (m_ActiveWeapon != WEAPON_HAMMER)
-		return;
-
-	if (frandom() * 100 > 10 && m_ActiveWeapon != WEAPON_HAMMER)
+	if (frandom() * 100 > 10)
 		return;
 
 	// -1 because smoke grenade shouldn't be included

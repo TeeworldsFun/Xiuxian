@@ -113,24 +113,23 @@ public:
 		return SendMsg(&Packer, Flags, ClientID);
 	}
 
-	bool Translate(int& target, int client)
+	bool Translate(int& Target, int Client)
 	{
-		CClientInfo info;
-		GetClientInfo(client, &info);
-		if (info.m_CustClt)
+		if(Target < MAX_PLAYERS || Client >= MAX_PLAYERS)
 			return true;
-		int* map = GetIdMap(client);
-		bool found = false;
-		for (int i = 0; i < VANILLA_MAX_CLIENTS; i++)
+
+		int* pMap = GetIdMap(Client);
+		bool Found = false;
+		for(int i = MAX_PLAYERS; i < VANILLA_MAX_CLIENTS; i++)
 		{
-			if (target == map[i])
+			if(Target == pMap[i])
 			{
-				target = i;
-				found = true;
+				Target = i;
+				Found = true;
 				break;
 			}
 		}
-		return found;
+		return Found;
 	}
 
 	bool ReverseTranslate(int& target, int client)
@@ -145,6 +144,9 @@ public:
 		target = map[target];
 		return true;
 	}
+
+	virtual int NewBot(int ClientID) = 0;
+	virtual int DelBot(int ClientID) = 0;
 
 	virtual void SetClientName(int ClientID, char const *pName, bool Bot = false) = 0;
 	virtual void SetClientClan(int ClientID, char const *pClan) = 0;
@@ -172,10 +174,10 @@ public:
 	virtual const char *GetClientLanguage(int ClientID) = 0;
 	virtual void SetClientLanguage(int ClientID, const char *pLanguage) = 0;
 
-	virtual void AddZombie(const char *Name) = 0;
-
 	virtual int* GetIdMap(int ClientID) = 0;
 	virtual void SetCustClt(int ClientID) = 0;
+
+	virtual int GetMapReload() = 0;
 };
 
 class IGameServer : public IInterface
@@ -209,10 +211,8 @@ public:
 
 	virtual void OnSetAuthed(int ClientID, int Level) = 0;
 
-	virtual bool AIInputUpdateNeeded(int ClientID) = 0;
-	virtual void AIUpdateInput(int ClientID, int *Data) = 0; // MAX_INPUT_SIZE
-
-	virtual void AddZombie(const char *Name) = 0;
+	virtual void DeleteBot(int i) = 0;
+	virtual bool ReplacePlayerByBot(int ClientID) = 0;
 };
 
 extern IGameServer *CreateGameServer();

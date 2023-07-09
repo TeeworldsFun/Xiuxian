@@ -18,6 +18,8 @@
 #include "player.h"
 //#include "Data/accdata.h"
 
+#include "botengine.h"
+
 #ifdef CONF_SQLITE
 #include "db_sqlite3.h"
 #endif
@@ -162,6 +164,8 @@ public:
 	CVoteOptionServer *m_pVoteOptionFirst;
 	CVoteOptionServer *m_pVoteOptionLast;
 
+	class CBotEngine *m_pBotEngine;
+
 	// helper functions
 	void CreateDamageInd(vec2 Pos, float AngleMod, int Amount, int64_t Mask = -1LL);
 	void CreateExplosion(vec2 Pos, int Owner, int Weapon, bool NoDamage, int64_t Mask = -1LL);
@@ -205,6 +209,12 @@ public:
 	void CheckPureTuning();
 	void SendTuningParams(int ClientID);
 
+	// Bot slots
+	virtual void DeleteBot(int i);
+	bool AddBot(int i, bool UseDropPlayer = false);
+	virtual bool ReplacePlayerByBot(int ClientID);
+	void CheckBotNumber();
+
 	//
 	void SwapTeams();
 
@@ -235,11 +245,6 @@ public:
 	virtual const char *Version();
 	virtual const char *NetVersion();
 	
-	virtual void AddZombie(const char *Name);
-	virtual bool AIInputUpdateNeeded(int ClientID);
-	virtual void AIUpdateInput(int ClientID, int *Data);
-	void UpdateAI();
-	
 	#ifdef CONF_SQLITE
 	// - SQLite
 	CSql *m_pDatabase;
@@ -255,7 +260,7 @@ public:
 	void Apply(int ClientID, const char NeedyUpdate[256], const char Value[256]); // Apply account
 #endif
 
-	bool IsBot(int ClientID);
+	int PlayerCount();
 };
 
 #ifdef CONF_SQLITE

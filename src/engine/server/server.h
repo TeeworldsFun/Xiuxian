@@ -106,7 +106,7 @@ public:
 		int m_Latency;
 		int m_SnapRate;
 
-		bool m_Bot;
+		bool m_IsBot;
 
 		int m_LastAckedSnapshot;
 		int m_LastInputTick;
@@ -148,7 +148,7 @@ public:
 	int64 m_GameStartTime;
 	//int m_CurrentGameTick;
 	int m_RunServer;
-	int m_MapReload;
+	bool m_MapReload;
 	int m_RconClientID;
 	int m_RconAuthLevel;
 	int m_PrintCBIndex;
@@ -218,7 +218,6 @@ public:
 	void UpdateServerInfo();
 
 	void PumpNetwork();
-	void UpdateAIInput();
 
 	char *GetMapName();
 	int LoadMap(const char *pMapName);
@@ -252,9 +251,10 @@ public:
 	
 	virtual int* GetIdMap(int ClientID);
 	virtual void SetCustClt(int ClientID);
+	int GetMapReload();
 
-	virtual void AddZombie(const char *Name);
-	void KickBots();
+	int NewBot(int ClientID);
+	int DelBot(int ClientID);
 };
 
 #endif

@@ -9,8 +9,6 @@
 #include "gamecontroller.h"
 #include "gamecontext.h"
 
-#include "ai/easy_xiesui_ai.h"
-
 CGameController::CGameController(class CGameContext *pGameServer)
 {
 	m_pGameServer = pGameServer;
@@ -226,8 +224,9 @@ void CGameController::StartRound()
 
 void CGameController::ChangeMap(const char *pToMap)
 {
-	str_copy(m_aMapWish, pToMap, sizeof(m_aMapWish));
-	EndRound();
+	dbg_msg("Warning", "Change map is Unable.");
+	// str_copy(m_aMapWish, pToMap, sizeof(m_aMapWish));
+	// EndRound();
 }
 
 void CGameController::CycleMap()
@@ -363,22 +362,9 @@ void CGameController::OnCharacterSpawn(class CCharacter *pChr, bool RequestAI)
 	// default health
 	pChr->IncreaseHealth(10);
 
-	// must
+	// give default weapons
 	pChr->GiveWeapon(WEAPON_HAMMER, -1);
-
-	if (RequestAI)
-	{
-		pChr->GetPlayer()->m_pAI = new CAIXieSui(GameServer(), pChr->GetPlayer(), TYPE_L1);
-	}
-
-	if (pChr->GetPlayer()->m_pAI)
-		pChr->GetPlayer()->m_pAI->Reset();
-	else // Not AI
-	{
-		// give default weapons
-		pChr->GiveWeapon(WEAPON_HAMMER, -1);
-		pChr->GiveWeapon(WEAPON_GUN, 10);
-	}
+	pChr->GiveWeapon(WEAPON_GUN, 10);
 }
 
 void CGameController::DoWarmup(int Seconds)
@@ -418,14 +404,11 @@ bool CGameController::IsFriendlyFire(int ClientID1, int ClientID2)
 	if (ClientID1 == ClientID2)
 		return false;
 
-	if (IsTeamplay())
-	{
-		if (!GameServer()->m_apPlayers[ClientID1] || !GameServer()->m_apPlayers[ClientID2])
-			return false;
+	if (!GameServer()->m_apPlayers[ClientID1] || !GameServer()->m_apPlayers[ClientID2])
+		return false;
 
-		if (GameServer()->m_apPlayers[ClientID1]->GetTeam() == GameServer()->m_apPlayers[ClientID2]->GetTeam())
-			return true;
-	}
+	if (GameServer()->m_apPlayers[ClientID1]->GetTeam() == GameServer()->m_apPlayers[ClientID2]->GetTeam())
+		return true;
 
 	return false;
 }
@@ -544,6 +527,10 @@ void CGameController::Tick()
 					break;
 			}
 #endif
+			// Preserve bot
+			if (GameServer()->m_apPlayers[i] && GameServer()->m_apPlayers[i]->m_IsBot)
+				break;
+
 			if (GameServer()->m_apPlayers[i] && GameServer()->m_apPlayers[i]->GetTeam() != TEAM_SPECTATORS && !Server()->IsAuthed(i))
 			{
 				if (Server()->Tick() > GameServer()->m_apPlayers[i]->m_LastActionTick + g_Config.m_SvInactiveKickTime * Server()->TickSpeed() * 60)
@@ -581,7 +568,6 @@ void CGameController::Tick()
 	}
 
 	DoWincheck();
-	GameServer()->UpdateAI();
 }
 
 bool CGameController::IsTeamplay() const
