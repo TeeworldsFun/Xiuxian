@@ -293,6 +293,8 @@ public:
 	void UnRegisterBot(int CID);
 
 	static int SegmentComp(const void *a, const void *b);
+
+	bool m_Inited;
 };
 
 #endif

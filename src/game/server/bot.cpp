@@ -57,7 +57,7 @@ void CBot::OnReset()
 void CBot::UpdateTargetOrder()
 {
 	//int *pGenome = m_Genetics.GetGenome();
-	const int *pGenome = &g_aBotPriority[m_pPlayer->GetCID()][0];
+	const int *pGenome = &g_aBotPriority[m_pPlayer->GetCID()%8][0];
 	for(int i = 0 ; i < CTarget::NUM_TARGETS ; i++)
 	{
 		int j = i;

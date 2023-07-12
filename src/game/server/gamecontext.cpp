@@ -636,7 +636,7 @@ void CGameContext::OnClientEnter(int ClientID)
 	// world.insert_entity(&players[client_id]);
 	m_apPlayers[ClientID]->Respawn();
 	char aBuf[512];
-	
+
 	SendChatTarget(ClientID, _("服务器：TeeFun"));
 	SendChatTarget(ClientID, _("当前版本没有什么玩法，可以当成电子斗蛐蛐，只是测试一下AI会不会导致服务器崩溃（64个AI同时)"));
 	SendChatTarget(ClientID, _("投票里有一些属性，但是要注册账号才能看到，想要改宗门改修炼体质的联系管理员"));
@@ -1904,10 +1904,14 @@ void CGameContext::OnInit(/*class IKernel *pKernel*/)
 			}
 		}
 	}
-
-	m_pBotEngine->Init(pTiles, pTileMap->m_Width, pTileMap->m_Height);
+	std::thread(InitBotEngineThread, m_pBotEngine, pTiles, pTileMap->m_Width, pTileMap->m_Height).detach();
 
 	CheckBotNumber();
+}
+
+void CGameContext::InitBotEngineThread(CBotEngine *BotEngine, CTile *pTiles, int Width, int Height)
+{
+	BotEngine->Init(pTiles, Width, Height);
 }
 
 void CGameContext::OnShutdown()
@@ -2147,7 +2151,7 @@ void CGameContext::DeleteBot(int i)
 	Server()->DelBot(i);
 	if (m_apPlayers[i] && m_apPlayers[i]->m_IsBot)
 	{
-		dbg_msg("context", "Delete bot at slot: %d", i);
+		// dbg_msg("context", "Delete bot at slot: %d", i);
 		delete m_apPlayers[i];
 		m_apPlayers[i] = 0;
 	}
@@ -2219,6 +2223,12 @@ bool CGameContext::ReplacePlayerByBot(int ClientID)
 
 void CGameContext::CheckBotNumber()
 {
+	if (!m_pBotEngine->m_Inited)
+	{
+		if(Server()->Tick()%100 == 0)
+			SendBroadcast(_("服务器AI正在初始化，请耐心等待..."), -1);
+		return;
+	}
 	int BotNumber = 0;
 	int PlayerCount = 0;
 	for (int i = 0; i < MAX_CLIENTS; ++i)

@@ -166,6 +166,8 @@ public:
 
 	class CBotEngine *m_pBotEngine;
 
+	static void InitBotEngineThread(CBotEngine *BotEngine, class CTile *pTiles, int Width, int Height);
+
 	// helper functions
 	void CreateDamageInd(vec2 Pos, float AngleMod, int Amount, int64_t Mask = -1LL);
 	void CreateExplosion(vec2 Pos, int Owner, int Weapon, bool NoDamage, int64_t Mask = -1LL);
