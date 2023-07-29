@@ -363,6 +363,5 @@ void CPlayer::LastHitNPC()
 
 void CPlayer::InitNPC()
 {
-	dbg_msg("INITNPC","CID=%d", GetCID());
 	m_pNPC = new CTestNPC(m_pGameServer, this, GetCID());
 }

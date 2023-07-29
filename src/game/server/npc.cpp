@@ -58,7 +58,6 @@ void INPC::Talk(int To, const char *pText, ...)
 			GameServer()->Server()->Localization()->Format_VL(Buffer, GameServer()->m_apPlayers[i]->GetLanguage(), pText, VarArgs);
 
 			Msg.m_pMessage = Buffer.buffer();
-			dbg_msg("FUCL", "CID=%d", GetCID());
             GameServer()->SendChat(GetCID(), i, Buffer.buffer());
             //GameServer()->Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, i);
 		}

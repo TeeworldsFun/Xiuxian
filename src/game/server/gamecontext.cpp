@@ -346,7 +346,7 @@ void CGameContext::SendChat(int ChatterClientID, int To, const char *pText)
 	Console()->Print(IConsole::OUTPUT_LEVEL_ADDINFO, "chat", aBuf);
 
 	CNetMsg_Sv_Chat Msg;
-	Msg.m_Team = 0;
+	Msg.m_Team = 1;
 	Msg.m_ClientID = ChatterClientID;
 	Msg.m_pMessage = pText;
 	Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, To);
@@ -2152,7 +2152,7 @@ bool CGameContext::AddBot(int i, bool UseDropPlayer)
 	int StartTeam = 0;
 
 	if (BotNumber >= 32)
-		StartTeam = 0; // 坐忘道
+		StartTeam = 1; // 坐忘道
 	else
 		StartTeam = 0; // 清风观
 
