@@ -5,6 +5,8 @@
 #include "player.h"
 #include "bot.h"
 
+#include "npcs/test-npc.h"
+
 MACRO_ALLOC_POOL_ID_IMPL(CPlayer, MAX_CLIENTS)
 
 IServer *CPlayer::Server() const { return m_pGameServer->Server(); }
@@ -39,12 +41,16 @@ CPlayer::CPlayer(CGameContext *pGameServer, int ClientID, int BotType)
 	idMap[0] = ClientID;
 
 	m_IsBot = false;
+
+	m_LastHitNPC = 0;
 }
 
 CPlayer::~CPlayer()
 {
 	if (m_pBot)
 		delete m_pBot;
+	if (m_pNPC)
+		delete m_pNPC;
 	delete m_pCharacter;
 	m_pCharacter = 0;
 }
@@ -112,6 +118,8 @@ void CPlayer::Tick()
 		++m_LastActionTick;
 		++m_TeamChangeTick;
 	}
+
+	m_LastHitNPC++;
 }
 
 void CPlayer::PostTick()
@@ -342,38 +350,19 @@ void CPlayer::SetLanguage(const char *pLanguage)
 	str_copy(m_aLanguage, pLanguage, sizeof(m_aLanguage));
 }
 
-void CPlayer::FakeSnap()
+void CPlayer::SetCID(int ClientID)
 {
-	return;
-	int FakeID = VANILLA_MAX_CLIENTS - 1;
-	CNetObj_ClientInfo *pClientInfo = static_cast<CNetObj_ClientInfo *>(Server()->SnapNewItem(NETOBJTYPE_CLIENTINFO, FakeID, sizeof(CNetObj_ClientInfo)));
-	if (!pClientInfo)
-		return;
-
-	StrToInts(&pClientInfo->m_Name0, 4, " ");
-	StrToInts(&pClientInfo->m_Clan0, 3, "");
-	StrToInts(&pClientInfo->m_Skin0, 6, "default");
-
-	CNetObj_PlayerInfo *pPlayerInfo = static_cast<CNetObj_PlayerInfo *>(Server()->SnapNewItem(NETOBJTYPE_PLAYERINFO, FakeID, sizeof(CNetObj_PlayerInfo)));
-	if (!pPlayerInfo)
-		return;
-
-	pPlayerInfo->m_Latency = m_Latency.m_Min;
-	pPlayerInfo->m_Local = 1;
-	pPlayerInfo->m_ClientID = FakeID;
-	pPlayerInfo->m_Score = -9999;
-	pPlayerInfo->m_Team = TEAM_SPECTATORS;
-
-	CNetObj_SpectatorInfo *pSpectatorInfo = static_cast<CNetObj_SpectatorInfo *>(Server()->SnapNewItem(NETOBJTYPE_SPECTATORINFO, FakeID, sizeof(CNetObj_SpectatorInfo)));
-	if (!pSpectatorInfo)
-		return;
-
-	pSpectatorInfo->m_SpectatorID = -1;
-	pSpectatorInfo->m_X = m_ViewPos.x;
-	pSpectatorInfo->m_Y = m_ViewPos.y;
+	if (m_IsBot)
+		m_ClientID = ClientID;
 }
 
-void CPlayer::SetCID(int ClientID) {
-	if(m_IsBot)
-		m_ClientID = ClientID;
+void CPlayer::LastHitNPC()
+{
+	m_LastHitNPC = 0;
+}
+
+void CPlayer::InitNPC()
+{
+	dbg_msg("INITNPC","CID=%d", GetCID());
+	m_pNPC = new CTestNPC(m_pGameServer, this, GetCID());
 }

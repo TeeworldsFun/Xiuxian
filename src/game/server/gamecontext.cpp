@@ -336,40 +336,20 @@ void CGameContext::SendChatTarget(int To, const char *pText, ...)
 	va_end(VarArgs);
 }
 
-void CGameContext::SendChat(int ChatterClientID, int Team, const char *pText)
+void CGameContext::SendChat(int ChatterClientID, int To, const char *pText)
 {
 	char aBuf[256];
 	if (ChatterClientID >= 0 && ChatterClientID < MAX_CLIENTS)
-		str_format(aBuf, sizeof(aBuf), "%d:%d:%s: %s", ChatterClientID, Team, Server()->ClientName(ChatterClientID), pText);
+		str_format(aBuf, sizeof(aBuf), "%d:%d:%s: %s", ChatterClientID, To, Server()->ClientName(ChatterClientID), pText);
 	else
 		str_format(aBuf, sizeof(aBuf), "*** %s", pText);
-	Console()->Print(IConsole::OUTPUT_LEVEL_ADDINFO, Team != CHAT_ALL ? "teamchat" : "chat", aBuf);
+	Console()->Print(IConsole::OUTPUT_LEVEL_ADDINFO, "chat", aBuf);
 
-	if (Team == CHAT_ALL)
-	{
-		CNetMsg_Sv_Chat Msg;
-		Msg.m_Team = 0;
-		Msg.m_ClientID = ChatterClientID;
-		Msg.m_pMessage = pText;
-		Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, -1);
-	}
-	else
-	{
-		CNetMsg_Sv_Chat Msg;
-		Msg.m_Team = 1;
-		Msg.m_ClientID = ChatterClientID;
-		Msg.m_pMessage = pText;
-
-		// pack one for the recording only
-		Server()->SendPackMsg(&Msg, MSGFLAG_VITAL | MSGFLAG_NOSEND, -1);
-
-		// send to the clients
-		for (int i = 0; i < MAX_CLIENTS; i++)
-		{
-			if (m_apPlayers[i] && m_apPlayers[i]->GetTeam() == Team)
-				Server()->SendPackMsg(&Msg, MSGFLAG_VITAL | MSGFLAG_NORECORD, i);
-		}
-	}
+	CNetMsg_Sv_Chat Msg;
+	Msg.m_Team = 0;
+	Msg.m_ClientID = ChatterClientID;
+	Msg.m_pMessage = pText;
+	Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, To);
 }
 
 void CGameContext::SendEmoticon(int ClientID, int Emoticon)
@@ -785,6 +765,7 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 
 			if (pMsg->m_pMessage[0] == '/' || pMsg->m_pMessage[0] == '\\')
 			{
+				SendChat(63, -1, "hi");
 				switch (m_apPlayers[ClientID]->m_Authed)
 				{
 				case IServer::AUTHED_ADMIN:
@@ -803,7 +784,7 @@ void CGameContext::OnMessage(int MsgID, CUnpacker *pUnpacker, int ClientID)
 			}
 			else
 			{
-				SendChat(ClientID, Team, pMsg->m_pMessage);
+				SendChat(ClientID, -1, pMsg->m_pMessage);
 			}
 		}
 		else if (MsgID == NETMSGTYPE_CL_CALLVOTE)
@@ -1941,9 +1922,6 @@ void CGameContext::OnSnap(int ClientID)
 	for (int i = 0; i < MAX_CLIENTS; i++)
 		if (m_apPlayers[i] && m_apPlayers[i]->IsBot() && g_Config.m_SvBotDrawTarget)
 			m_apPlayers[i]->m_pBot->Snap(ClientID);
-
-	if (ClientID >= MAX_PLAYERS)
-		m_apPlayers[ClientID]->FakeSnap();
 }
 void CGameContext::OnPreSnap() {}
 void CGameContext::OnPostSnap()
@@ -2174,7 +2152,7 @@ bool CGameContext::AddBot(int i, bool UseDropPlayer)
 	int StartTeam = 0;
 
 	if (BotNumber >= 32)
-		StartTeam = 1; // 坐忘道
+		StartTeam = 0; // 坐忘道
 	else
 		StartTeam = 0; // 清风观
 
@@ -2183,6 +2161,9 @@ bool CGameContext::AddBot(int i, bool UseDropPlayer)
 
 	m_apPlayers[i]->m_IsBot = true;
 	m_apPlayers[i]->m_pBot = new CBot(m_pBotEngine, m_apPlayers[i]);
+
+	m_apPlayers[i]->InitNPC();
+
 	Server()->SetClientClan(i, "坐忘道");
 	if (StartTeam == 1)
 	{
@@ -2225,7 +2206,7 @@ void CGameContext::CheckBotNumber()
 {
 	if (!m_pBotEngine->m_Inited)
 	{
-		if(Server()->Tick()%100 == 0)
+		if (Server()->Tick() % 100 == 0)
 			SendBroadcast(_("服务器AI正在初始化，请耐心等待..."), -1);
 		return;
 	}
@@ -2268,4 +2249,32 @@ void CGameContext::CheckBotNumber()
 				AddBot(LastFreeSlot);
 		}
 	}
+}
+
+void CGameContext::SendMotd(int To, const char *pText, ...)
+{
+	int Start = (To < 0 ? 0 : To);
+	int End = (To < 0 ? MAX_CLIENTS : To + 1);
+
+	CNetMsg_Sv_Motd Msg;
+	Msg.m_pMessage = NULL;
+
+	dynamic_string Buffer;
+
+	va_list VarArgs;
+	va_start(VarArgs, pText);
+
+	for (int i = Start; i < End; i++)
+	{
+		if (m_apPlayers[i])
+		{
+			Buffer.clear();
+			Server()->Localization()->Format_VL(Buffer, m_apPlayers[i]->GetLanguage(), pText, VarArgs);
+
+			Msg.m_pMessage = Buffer.buffer();
+			Server()->SendPackMsg(&Msg, MSGFLAG_VITAL, i);
+		}
+	}
+
+	va_end(VarArgs);
 }

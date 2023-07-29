@@ -47,11 +47,6 @@ void CBot::OnReset()
 	m_Flags = 0;
 	m_pPath->m_Size = 0;
 	m_ComputeTarget.m_Type = CTarget::TARGET_HEALTH;
-	//m_Genetics.SetFitness(m_GenomeTick);
-	//m_Genetics.NextGenome();
-	//m_GenomeTick = 0;
-	//UpdateTargetOrder();
-	//dbg_msg("bot", "new target order %d %d %d %d %d %d %d %d", m_aTargetOrder[0], m_aTargetOrder[1], m_aTargetOrder[2], m_aTargetOrder[3], m_aTargetOrder[4], m_aTargetOrder[5], m_aTargetOrder[6], m_aTargetOrder[7]);
 }
 
 void CBot::UpdateTargetOrder()

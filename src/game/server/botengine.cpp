@@ -277,13 +277,9 @@ void CBotEngine::Init(CTile *pTiles, int Width, int Height)
 			}
 		}
 
-		dbg_msg("TE", "GC");
 		GenerateCorners();
-		dbg_msg("TE", "GS");
 		GenerateSegments();
-		dbg_msg("TE", "GT");
 		GenerateTriangles();
-		dbg_msg("TE", "GD");
 
 		GenerateGraphFromTriangles();
 

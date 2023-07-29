@@ -601,6 +601,8 @@ set_glob(GAME_SERVER GLOB_RECURSE src/game/server
   entities/pickup.h
   entities/projectile.cpp
   entities/projectile.h
+  npcs/test-npc.cpp
+  npcs/test-npc.h
   account.cpp
   account.h
   bot.cpp
@@ -621,6 +623,8 @@ set_glob(GAME_SERVER GLOB_RECURSE src/game/server
   gamecontroller.h
   gameworld.cpp
   gameworld.h
+  npc.cpp
+  npc.h
   player.cpp
   player.h
 )

@@ -178,20 +178,22 @@ public:
 	void CreateSoundGlobal(int Sound, int Target=-1);
 
 
+	// 你猜
 	enum
 	{
-		CHAT_ALL=-2,
+		CHAT_ALL=-1,
 		CHAT_SPEC=-1,
-		CHAT_RED=0,
-		CHAT_BLUE=1
+		CHAT_RED=-1,
+		CHAT_BLUE=-1
 	};
 
 	// network
 	void SendChatTarget(int To, const char *pText, ...);
-	void SendChat(int ClientID, int Team, const char *pText);
+	void SendChat(int ClientID, int To, const char *pText);
 	void SendEmoticon(int ClientID, int Emoticon);
 	void SendWeaponPickup(int ClientID, int Weapon);
 	void SendBroadcast(const char *pText, int ClientID);
+	void SendMotd(int ClientID, const char *pText, ...);
 	void SetClientLanguage(int ClientID, const char *pLanguage);
 
 	// MMOTee

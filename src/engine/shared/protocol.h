@@ -80,7 +80,7 @@ enum
 
 	MAX_CLIENTS = 64,
 	MAX_PLAYERS = 16,
-	VANILLA_MAX_CLIENTS = 64,
+	VANILLA_MAX_CLIENTS = 16,
 	SNAP_MAX_CLIENTS = 16, // Im lazy to support ddnet browser
 
 	MAX_INPUT_SIZE=128,

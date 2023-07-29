@@ -11,6 +11,8 @@
 #include "Data/itemdata.h"
 #include <vector>
 
+#include "npc.h"
+
 // player object
 class CPlayer
 {
@@ -30,7 +32,6 @@ public:
 	void Tick();
 	void PostTick();
 	void Snap(int SnappingClient);
-	virtual void FakeSnap();
 
 	void OnDirectInput(CNetObj_PlayerInput *NewInput);
 	void OnPredictedInput(CNetObj_PlayerInput *NewInput);
@@ -114,8 +115,14 @@ public:
 	class CBot *m_pBot;
 	
 	bool IsBot() { return m_IsBot; }
+	class CBot *GetBot()  const { return m_pBot; }
 
 	int m_RealTeam;
+
+	int m_LastHitNPC;
+	void LastHitNPC();
+
+	void InitNPC();
 private:
 	CCharacter *m_pCharacter;
 	CGameContext *m_pGameServer;
@@ -129,6 +136,10 @@ private:
 	int m_Team;
 
 	char m_aLanguage[16];
+
+public:
+	class INPC *m_pNPC;
+	class INPC *GetNPC() const { return m_pNPC; }
 };
 
 #endif

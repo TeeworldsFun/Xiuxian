@@ -334,6 +334,12 @@ void CCharacter::FireWeapon()
 
 			pTarget->TakeDamage(vec2(0.f, -1.f) + normalize(Dir + vec2(0.f, -1.1f)) * 10.0f, g_pData->m_Weapons.m_Hammer.m_pBase->m_Damage,
 								m_pPlayer->GetCID(), m_ActiveWeapon);
+
+			if (pTarget->GetPlayer()->GetNPC())
+			{
+				pTarget->GetPlayer()->GetNPC()->OnHit(GetPlayer()->GetCID());
+			}
+
 			Hits++;
 		}
 
@@ -690,6 +696,9 @@ bool CCharacter::IncreaseArmor(int Amount)
 
 void CCharacter::Die(int Killer, int Weapon)
 {
+	if (GetPlayer()->GetNPC())
+		GetPlayer()->GetNPC()->OnDie(Killer, Weapon);
+
 	GameServer()->CreateSound(m_Pos, SOUND_PLAYER_DIE);
 	if (!m_IsBot) // 判断是AI还是玩家（是玩家）
 	{
@@ -717,10 +726,8 @@ void CCharacter::Die(int Killer, int Weapon)
 		m_InSleep = true;
 		vec2 SpawnPos;
 
-		//if (!GameServer()->m_pController->CanSpawn(0, &SpawnPos))
+		// if (!GameServer()->m_pController->CanSpawn(0, &SpawnPos))
 		//	return;
-
-		
 	}
 	GameServer()->CreateDeath(m_Pos, m_pPlayer->GetCID());
 }
@@ -731,7 +738,7 @@ bool CCharacter::TakeDamage(vec2 Force, int Dmg, int From, int Weapon)
 
 	int id = GetPlayer()->GetCID();
 
-	//if (GameServer()->m_pController->IsFriendlyFire(m_pPlayer->GetCID(), From))
+	// if (GameServer()->m_pController->IsFriendlyFire(m_pPlayer->GetCID(), From))
 	//	return false;
 
 	// m_pPlayer only inflicts half damage on self
@@ -791,6 +798,11 @@ bool CCharacter::TakeDamage(vec2 Force, int Dmg, int From, int Weapon)
 		GameServer()->CreateSound(GameServer()->m_apPlayers[From]->m_ViewPos, SOUND_HIT, Mask);
 	}
 
+	if (GetPlayer()->GetNPC())
+	{
+		GetPlayer()->GetNPC()->OnTakeDamage(From, Dmg, Weapon);
+	}
+
 	// check for death
 	if (m_Health <= 0)
 	{
@@ -825,7 +837,7 @@ void CCharacter::Snap(int SnappingClient)
 {
 	int Id = m_pPlayer->GetCID();
 
-	//if (!Server()->Translate(Id, SnappingClient) || GetPlayer()->m_InSleep)
+	// if (!Server()->Translate(Id, SnappingClient) || GetPlayer()->m_InSleep)
 	//	return;
 
 	if (NetworkClipped(SnappingClient))
